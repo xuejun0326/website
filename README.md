@@ -50,6 +50,14 @@ compare/*.md       比对报告 Markdown
 
 Cloudflare Pages 是静态部署模式，线上页面不能直接在线写入 Markdown。新增或修改报告时，把 `.md` 文件提交到 GitHub 的 `describe/` 或 `compare/` 目录，Cloudflare 会自动重新部署。
 
+仓库也提供了 `wrangler.toml`：
+
+```toml
+pages_build_output_dir = "./dist"
+```
+
+如果 Cloudflare 新界面没有显示 Build output directory 输入框，会从该配置读取静态发布目录。
+
 ## 部署
 
 服务器安装 Node.js 18+ 后：
