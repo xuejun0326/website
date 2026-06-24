@@ -6,9 +6,14 @@
   "scripts": {
     "build": "node scripts/build-static.js",
     "start": "node server.js",
-    "test": "node tests/compare-pagination.test.js && node tests/static-build.test.js"
+    "test": "node tests/compare-pagination.test.js && node tests/static-build.test.js",
+    "deploy": "wrangler deploy",
+    "preview": "wrangler dev"
   },
   "engines": {
     "node": ">=18"
+  },
+  "devDependencies": {
+    "wrangler": "^4.104.0"
   }
 }
