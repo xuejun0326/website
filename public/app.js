@@ -5,7 +5,8 @@ const state = {
   selectedCompare: null,
   comparePage: 1,
   rankFilter: "全部",
-  query: ""
+  query: "",
+  staticMode: false
 };
 
 function $(selector, root = document) {
@@ -82,11 +83,15 @@ function openPage(page) {
 
 async function loadReports() {
   try {
-    const res = await fetch("/api/reports");
+    let res = await fetch("/api/reports");
+    if (!res.ok) {
+      res = await fetch("/api/reports.json");
+      state.staticMode = res.ok;
+    }
     if (!res.ok) throw new Error("读取报告失败");
     state.reports = await res.json();
   } catch (error) {
-    toast(`读取本地 Markdown 失败：${error.message}`);
+    toast(`读取报告索引失败：${error.message}`);
   }
   state.selectedDescribe = state.reports.describe[0] || null;
   state.selectedCompare = state.reports.compare[0] || null;
@@ -181,8 +186,18 @@ function analysisTable(rows, compact = false) {
 function reportActions(item, type) {
   return `
     <button class="btn btn-ghost btn-sm" data-preview="${type}:${escapeHtml(item.file)}">预览</button>
-    <a class="btn btn-ghost btn-sm" href="/download/${type}/${encodeURIComponent(item.file)}">下载</a>
+    <a class="btn btn-ghost btn-sm" href="${downloadUrl(type, item.file)}" download>下载</a>
   `;
+}
+
+function staticReportUrl(type, file) {
+  return `/${type}/${encodeURIComponent(file)}`;
+}
+
+function downloadUrl(type, file) {
+  return state.staticMode
+    ? staticReportUrl(type, file)
+    : `/download/${type}/${encodeURIComponent(file)}`;
 }
 
 function rankingList(items) {
@@ -223,7 +238,7 @@ function renderAnalysis() {
         <select class="select"><option>全部状态</option><option>已发布</option><option>分析中</option><option>待复核</option></select>
         <select class="select"><option>全部家族</option><option>ArceOS-Starry</option><option>RISC-V / rCore</option></select>
         <select class="select"><option>引用验证</option><option>已验证</option><option>待验证</option></select>
-        <button class="btn btn-primary" data-upload="describe"><span class="icon">⇧</span>管理员追加 MD</button>
+        <button class="btn btn-primary" data-upload="describe"><span class="icon">⇧</span>报告更新说明</button>
       </div>
       <div class="grid-detail">
         <article class="card">
@@ -277,7 +292,7 @@ function renderCompare() {
       <div class="compare-picker">
         <div class="select-card"><span>选择今年作品：</span><strong>${escapeHtml(selected?.left || "等待入库")}</strong></div>
         <div class="select-card"><span>选择历史作品：</span><strong>${escapeHtml(selected?.right || "等待入库")}</strong></div>
-        <button class="btn btn-primary" data-upload="compare"><span class="icon">▤</span>追加比对 MD</button>
+        <button class="btn btn-primary" data-upload="compare"><span class="icon">▤</span>报告更新说明</button>
       </div>
       <p style="color:var(--muted); font-weight:700">ⓘ 综合分由函数签名、系统调用、依赖、调用图、目录结构融合。</p>
       <div class="grid-compare">
@@ -433,8 +448,8 @@ function renderReports() {
       <h1 class="page-title">报告索引</h1>
       <p class="subtitle">统一管理项目分析 Markdown 与比对报告 Markdown，发布给评审与组委会查看。</p>
       <div class="grid-upload">
-        ${uploadCard("describe", "管理员追加项目分析 MD", "保存到服务器 describe 目录，用于今年作品 describe 报告。", "拖拽项目分析 Markdown 到此处入库", "选择项目 MD")}
-        ${uploadCard("compare", "管理员追加比对报告 MD", "保存到服务器 compare 目录，用于今年作品与历史作品 compare 报告。", "拖拽比对报告 Markdown 到此处入库", "选择比对 MD")}
+        ${uploadCard("describe", "项目分析报告更新", "Cloudflare Pages 部署时，报告随 GitHub 仓库一起发布。", "将新的项目分析 Markdown 提交到 describe 目录后重新部署", "查看更新方式")}
+        ${uploadCard("compare", "比对报告更新", "Cloudflare Pages 部署时，比对报告随 GitHub 仓库一起发布。", "将新的比对报告 Markdown 提交到 compare 目录后重新部署", "查看更新方式")}
         <aside class="card stat-list">
           ${statLine("▤", "项目分析", allDescribe().length)}
           ${statLine("↔", "比对报告", allCompare().length)}
@@ -502,7 +517,7 @@ function uploadStrip(type, text) {
     <div class="upload-strip" data-drop="${type}">
       <div class="upload-cloud">☁</div>
       <div><h4>${text}</h4><p>支持 .md 文件，单个文件不超过 20MB</p></div>
-      <button class="btn btn-outline" data-upload="${type}">${type === "compare" ? "追加比对 MD" : "追加项目 MD"}</button>
+      <button class="btn btn-outline" data-upload="${type}">查看更新方式</button>
     </div>
   `;
 }
@@ -514,6 +529,10 @@ function filterByQuery(items, keys) {
 }
 
 async function uploadFile(type, file) {
+  if (state.staticMode) {
+    toast("静态部署模式下不能在线写入文件；请把 Markdown 提交到 GitHub 后由 Cloudflare 重新部署。");
+    return;
+  }
   if (!file) return;
   if (!file.name.toLowerCase().endsWith(".md")) {
     toast("请选择 Markdown (.md) 文件");
@@ -540,13 +559,19 @@ async function uploadFile(type, file) {
 }
 
 async function previewReport(type, file) {
-  const res = await fetch(`/api/report?type=${encodeURIComponent(type)}&name=${encodeURIComponent(file)}`);
+  let res = await fetch(`/api/report?type=${encodeURIComponent(type)}&name=${encodeURIComponent(file)}`);
+  if (!res.ok) {
+    res = await fetch(staticReportUrl(type, file));
+  }
   if (!res.ok) {
     toast("无法读取报告");
     return;
   }
-  const data = await res.json();
-  showPreview(file, data.content);
+  const contentType = res.headers.get("Content-Type") || "";
+  const content = contentType.includes("application/json")
+    ? (await res.json()).content
+    : await res.text();
+  showPreview(file, content);
 }
 
 function showPreview(title, markdown) {
@@ -632,6 +657,10 @@ function wireEvents() {
 
     const upload = event.target.closest("[data-upload]");
     if (upload) {
+      if (state.staticMode) {
+        toast("Cloudflare 静态站点不能在线上传；更新 Markdown 后推送 GitHub，Cloudflare 会自动重新部署。");
+        return;
+      }
       const type = upload.dataset.upload;
       $(`#${type}-file`).click();
     }

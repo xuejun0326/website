@@ -30,6 +30,26 @@ tests/       前端行为回归测试
 npm test
 ```
 
+## Cloudflare Pages 部署
+
+连接 GitHub 仓库后，Cloudflare Pages 使用以下配置：
+
+```text
+Build command: npm run build
+Build output directory: dist
+Root directory: /
+```
+
+构建脚本会生成静态发布目录 `dist/`，其中包含：
+
+```text
+api/reports.json   静态报告索引
+describe/*.md      项目分析 Markdown
+compare/*.md       比对报告 Markdown
+```
+
+Cloudflare Pages 是静态部署模式，线上页面不能直接在线写入 Markdown。新增或修改报告时，把 `.md` 文件提交到 GitHub 的 `describe/` 或 `compare/` 目录，Cloudflare 会自动重新部署。
+
 ## 部署
 
 服务器安装 Node.js 18+ 后：

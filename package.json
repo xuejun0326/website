@@ -4,8 +4,9 @@
   "private": true,
   "description": "Local website for OSKAG kernel analysis reports",
   "scripts": {
+    "build": "node scripts/build-static.js",
     "start": "node server.js",
-    "test": "node tests/compare-pagination.test.js"
+    "test": "node tests/compare-pagination.test.js && node tests/static-build.test.js"
   },
   "engines": {
     "node": ">=18"
