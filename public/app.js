@@ -4,6 +4,10 @@ const state = {
   selectedDescribe: null,
   selectedCompare: null,
   comparePage: 1,
+  reportsPage: 1,
+  reportTypeFilter: "全部类型",
+  reportStatusFilter: "全部状态",
+  reportCitationFilter: "引用验证",
   rankFilter: "全部",
   query: "",
   staticMode: false
@@ -368,6 +372,27 @@ function comparePagination(total, pageSize, currentPage) {
   `;
 }
 
+function pagination(total, pageSize, currentPage, dataAttr) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const start = total ? (currentPage - 1) * pageSize + 1 : 0;
+  const end = Math.min(total, currentPage * pageSize);
+  const pageButtons = Array.from({ length: totalPages }, (_, index) => {
+    const page = index + 1;
+    return `<button class="page-btn ${page === currentPage ? "active" : ""}" ${dataAttr}="${page}">${page}</button>`;
+  }).join("");
+
+  return `
+    <div class="pagination">
+      <span>共 ${total} 条，显示 ${start}-${end}</span>
+      <span class="spacer"></span>
+      <button class="page-btn" ${dataAttr}="prev" ${currentPage <= 1 ? "disabled" : ""}>‹</button>
+      ${pageButtons}
+      <button class="page-btn" ${dataAttr}="next" ${currentPage >= totalPages ? "disabled" : ""}>›</button>
+      <select class="select" style="width:120px"><option>${pageSize} 条/页</option></select>
+    </div>
+  `;
+}
+
 function progress(label, value) {
   const v = Math.max(0, Math.min(1, Number(value || 0)));
   return `<div class="progress-row"><strong>${label}</strong><div class="bar"><span style="width:${v * 100}%"></span></div><span>${num(v)}</span></div>`;
@@ -447,6 +472,12 @@ function renderRanking() {
 
 function renderReports() {
   const reports = [...state.reports.describe, ...state.reports.compare];
+  const filteredReports = filterReports(reports);
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(filteredReports.length / pageSize));
+  state.reportsPage = Math.min(Math.max(1, state.reportsPage || 1), totalPages);
+  const pageStart = (state.reportsPage - 1) * pageSize;
+  const pageReports = filteredReports.slice(pageStart, pageStart + pageSize);
   $("#page-reports").innerHTML = `
     <section>
       <h1 class="page-title">报告索引</h1>
@@ -466,17 +497,30 @@ function renderReports() {
         <div class="card-pad" style="padding-top:0">
           <div class="toolbar compact">
             <input class="input" data-search placeholder="搜索报告 / 作品 / 类型" value="${escapeHtml(state.query)}" />
-            <select class="select"><option>全部类型</option><option>项目分析</option><option>比对报告</option></select>
-            <select class="select"><option>全部状态</option></select>
-            <select class="select"><option>引用验证</option></select>
+            <select class="select" data-report-type-filter>
+              ${selectOption("全部类型", state.reportTypeFilter)}
+              ${selectOption("项目分析", state.reportTypeFilter)}
+              ${selectOption("比对报告", state.reportTypeFilter)}
+            </select>
+            <select class="select" data-report-status-filter>
+              ${selectOption("全部状态", state.reportStatusFilter)}
+              ${selectOption("已发布", state.reportStatusFilter)}
+              ${selectOption("分析中", state.reportStatusFilter)}
+              ${selectOption("待复核", state.reportStatusFilter)}
+            </select>
+            <select class="select" data-report-citation-filter>
+              ${selectOption("引用验证", state.reportCitationFilter)}
+              ${selectOption("已验证", state.reportCitationFilter)}
+              ${selectOption("待验证", state.reportCitationFilter)}
+            </select>
           </div>
         </div>
         <div class="table-wrap">
           <table>
             <thead><tr><th>报告名称</th><th>类型</th><th>关联作品</th><th>引用验证</th><th>状态</th><th>更新时间</th><th>操作</th></tr></thead>
             <tbody>
-              ${filterByQuery(reports, ["title", "project", "left", "right", "file"]).length ? filterByQuery(reports, ["title", "project", "left", "right", "file"]).map((item) => `
-                <tr>
+              ${pageReports.length ? pageReports.map((item) => `
+                <tr data-report-row="${item.id}">
                   <td>${item.type === "compare" ? "↔" : "▤"} ${escapeHtml(item.title)}</td>
                   <td>${item.type === "compare" ? "比对报告" : "项目分析"}</td>
                   <td>${item.type === "compare" ? `${escapeHtml(item.left)} ↔ ${escapeHtml(item.right)}` : escapeHtml(item.project || item.title)}</td>
@@ -489,10 +533,24 @@ function renderReports() {
             </tbody>
           </table>
         </div>
-        <div class="pagination"><span>共 ${reports.length} 条</span><span class="spacer"></span><button class="page-btn">‹</button><button class="page-btn active">1</button><button class="page-btn">2</button><button class="page-btn">3</button><button class="page-btn">›</button><select class="select" style="width:120px"><option>10 条/页</option></select></div>
+        ${pagination(filteredReports.length, pageSize, state.reportsPage, "data-reports-page")}
       </article>
     </section>
   `;
+}
+
+function selectOption(value, selected) {
+  return `<option value="${escapeHtml(value)}" ${value === selected ? "selected" : ""}>${escapeHtml(value)}</option>`;
+}
+
+function filterReports(reports) {
+  let rows = filterByQuery(reports, ["title", "project", "left", "right", "file", "type"]);
+  if (state.reportTypeFilter === "项目分析") rows = rows.filter((item) => item.type === "describe");
+  if (state.reportTypeFilter === "比对报告") rows = rows.filter((item) => item.type === "compare");
+  if (state.reportStatusFilter !== "全部状态") rows = rows.filter((item) => item.status === state.reportStatusFilter);
+  if (state.reportCitationFilter === "已验证") rows = rows.filter((item) => item.citationRate !== null && item.citationRate !== undefined);
+  if (state.reportCitationFilter === "待验证") rows = rows.filter((item) => item.citationRate === null || item.citationRate === undefined);
+  return rows;
 }
 
 function uploadCard(type, title, desc, prompt, btn) {
@@ -707,6 +765,18 @@ function wireEvents() {
       renderCompare();
     }
 
+    const reportsPage = event.target.closest("[data-reports-page]");
+    if (reportsPage) {
+      const reports = [...state.reports.describe, ...state.reports.compare];
+      const totalPages = Math.max(1, Math.ceil(filterReports(reports).length / 10));
+      const target = reportsPage.dataset.reportsPage;
+      if (target === "prev") state.reportsPage -= 1;
+      else if (target === "next") state.reportsPage += 1;
+      else state.reportsPage = Number(target);
+      state.reportsPage = Math.min(Math.max(1, state.reportsPage), totalPages);
+      renderReports();
+    }
+
     const filter = event.target.closest("[data-rank-filter]");
     if (filter) {
       state.rankFilter = filter.dataset.rankFilter;
@@ -718,7 +788,26 @@ function wireEvents() {
     if (event.target.matches("[data-search]")) {
       state.query = event.target.value;
       state.comparePage = 1;
+      state.reportsPage = 1;
       render();
+    }
+  });
+
+  document.addEventListener("change", (event) => {
+    if (event.target.matches("[data-report-type-filter]")) {
+      state.reportTypeFilter = event.target.value;
+      state.reportsPage = 1;
+      renderReports();
+    }
+    if (event.target.matches("[data-report-status-filter]")) {
+      state.reportStatusFilter = event.target.value;
+      state.reportsPage = 1;
+      renderReports();
+    }
+    if (event.target.matches("[data-report-citation-filter]")) {
+      state.reportCitationFilter = event.target.value;
+      state.reportsPage = 1;
+      renderReports();
     }
   });
 
