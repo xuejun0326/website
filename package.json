@@ -1,0 +1,13 @@
+{
+  "name": "oskag-analysis-site",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local website for OSKAG kernel analysis reports",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/compare-pagination.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

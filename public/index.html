@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OSKAG Kernel Analysis</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand" data-page="home" role="button" tabindex="0">
+        <span class="brand-main">OSKAG</span>
+        <span class="brand-sub">Kernel Analysis</span>
+      </div>
+      <nav class="nav" aria-label="主导航">
+        <button class="nav-link active" data-page="home">首页</button>
+        <button class="nav-link" data-page="analysis">今年作品分析</button>
+        <button class="nav-link" data-page="compare">历年作品比对</button>
+        <button class="nav-link" data-page="ranking">实时相似度排名</button>
+        <button class="nav-link" data-page="reports">报告索引</button>
+      </nav>
+      <div class="top-actions">
+        <button class="btn btn-primary" data-upload="describe"><span class="icon">⇧</span>追加项目 MD</button>
+        <button class="btn btn-outline" data-upload="compare"><span class="icon">＋</span>追加比对 MD</button>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="page active" id="page-home"></section>
+      <section class="page" id="page-analysis"></section>
+      <section class="page" id="page-compare"></section>
+      <section class="page" id="page-ranking"></section>
+      <section class="page" id="page-reports"></section>
+    </main>
+
+    <input id="describe-file" type="file" accept=".md,text/markdown,text/plain" hidden />
+    <input id="compare-file" type="file" accept=".md,text/markdown,text/plain" hidden />
+
+    <div class="modal" id="preview-modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal></div>
+      <article class="modal-panel">
+        <header class="modal-head">
+          <div>
+            <p class="eyebrow">Markdown 预览</p>
+            <h2 id="preview-title">报告预览</h2>
+          </div>
+          <button class="icon-btn" data-close-modal aria-label="关闭">×</button>
+        </header>
+        <div class="markdown-body" id="preview-content"></div>
+      </article>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <script src="/app.js"></script>
+  </body>
+</html>
