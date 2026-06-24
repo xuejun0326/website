@@ -81,11 +81,15 @@ function openPage(page) {
   render();
 }
 
+function assetPath(path) {
+  return new URL(path.replace(/^\//, ""), document.baseURI).pathname;
+}
+
 async function loadReports() {
   try {
     let res = await fetch("/api/reports");
     if (!res.ok) {
-      res = await fetch("/api/reports.json");
+      res = await fetch(assetPath("api/reports.json"));
       state.staticMode = res.ok;
     }
     if (!res.ok) throw new Error("读取报告失败");
@@ -191,7 +195,7 @@ function reportActions(item, type) {
 }
 
 function staticReportUrl(type, file) {
-  return `/${type}/${encodeURIComponent(file)}`;
+  return assetPath(`${type}/${encodeURIComponent(file)}`);
 }
 
 function downloadUrl(type, file) {

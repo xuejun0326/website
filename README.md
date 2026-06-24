@@ -65,6 +65,30 @@ npx wrangler deploy
 
 Wrangler 会从该配置读取静态发布目录 `dist`。
 
+## GitHub Pages 部署
+
+仓库包含 `.github/workflows/pages.yml`。每次推送到 `main` 后，GitHub Actions 会自动执行：
+
+```bash
+npm run build
+```
+
+并把 `dist/` 发布到 GitHub Pages。
+
+首次启用时，在 GitHub 仓库进入：
+
+```text
+Settings -> Pages -> Build and deployment -> Source
+```
+
+选择：
+
+```text
+GitHub Actions
+```
+
+保存后重新运行 `Deploy GitHub Pages` workflow。
+
 ## 部署
 
 服务器安装 Node.js 18+ 后：
