@@ -17,7 +17,7 @@ const reports = JSON.parse(fs.readFileSync(reportsPath, "utf8"));
 assert.ok(fs.existsSync(path.join(dist, "index.html")), "dist should contain index.html");
 assert.ok(fs.existsSync(path.join(dist, "app.js")), "dist should contain app.js");
 assert.ok(fs.existsSync(path.join(dist, "styles.css")), "dist should contain styles.css");
-assert.strictEqual(reports.describe.length, 8, "static build should index 8 describe reports");
+assert.strictEqual(reports.describe.length, 11, "static build should index 11 describe reports");
 assert.strictEqual(reports.compare.length, 12, "static build should index 12 compare reports");
 
 for (const item of reports.describe) {
