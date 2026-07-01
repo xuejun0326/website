@@ -8,6 +8,8 @@ const state = {
   reportTypeFilter: "全部类型",
   reportStatusFilter: "全部状态",
   reportCitationFilter: "引用验证",
+  yearFilter: "全部年份",
+  schoolFilter: "全部学校",
   rankFilter: "全部",
   query: "",
   staticMode: false
@@ -36,6 +38,18 @@ function num(value) {
   return Number(value || 0).toFixed(2);
 }
 
+function fieldValue(item, key) {
+  return String(item?.[key] || "待补充");
+}
+
+function yearValue(item) {
+  return fieldValue(item, "year");
+}
+
+function schoolValue(item) {
+  return fieldValue(item, "school");
+}
+
 function allDescribe() {
   return [...state.reports.describe];
 }
@@ -43,9 +57,61 @@ function allDescribe() {
 function allCompare() {
   const real = state.reports.compare.map((item) => ({
     ...item,
-    risk: item.risk || riskByScore(item.score)
+    risk: item.risk || riskByScore(item.score),
+    leftYear: item.leftYear || item.year || "待补充",
+    rightYear: item.rightYear || item.year || "待补充",
+    leftSchool: item.leftSchool || item.school || "待补充",
+    rightSchool: item.rightSchool || item.school || "待补充"
   }));
   return real.sort((a, b) => (b.score || 0) - (a.score || 0));
+}
+
+function uniq(values) {
+  return [...new Set(values.map((value) => String(value || "待补充")).filter(Boolean))].sort((a, b) => {
+    if (a === "待补充") return 1;
+    if (b === "待补充") return -1;
+    return b.localeCompare(a, "zh-CN", { numeric: true });
+  });
+}
+
+function yearOptions() {
+  const values = [
+    ...state.reports.describe.map((item) => item.year),
+    ...state.reports.compare.flatMap((item) => [item.year, item.leftYear, item.rightYear])
+  ];
+  return ["全部年份", ...uniq(values)];
+}
+
+function schoolOptions() {
+  const values = [
+    ...state.reports.describe.map((item) => item.school),
+    ...state.reports.compare.flatMap((item) => [item.school, item.leftSchool, item.rightSchool])
+  ];
+  return ["全部学校", ...uniq(values)];
+}
+
+function optionList(values, selected) {
+  return values.map((value) => selectOption(value, selected)).join("");
+}
+
+function matchesYear(item) {
+  if (state.yearFilter === "全部年份") return true;
+  return [item.year, item.leftYear, item.rightYear].some((value) => String(value || "") === state.yearFilter);
+}
+
+function matchesSchool(item) {
+  if (state.schoolFilter === "全部学校") return true;
+  return [item.school, item.leftSchool, item.rightSchool].some((value) => String(value || "") === state.schoolFilter);
+}
+
+function filterByYearSchool(items) {
+  return items.filter((item) => matchesYear(item) && matchesSchool(item));
+}
+
+function compareMeta(item) {
+  const left = [item.leftYear, item.leftSchool].filter((value) => value && value !== "待补充").join(" · ") || "待补充";
+  const right = [item.rightYear, item.rightSchool].filter((value) => value && value !== "待补充").join(" · ") || "待补充";
+  return `${left} ↔ ${right}`;
 }
 
 function riskByScore(score) {
@@ -160,13 +226,15 @@ function metric(icon, label, value, suffix = "") {
 }
 
 function analysisTable(rows, compact = false) {
-  const colSpan = compact ? 5 : 6;
+  const colSpan = compact ? 6 : 8;
   return `
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
             <th>作品</th>
+            <th>年份</th>
+            ${compact ? "" : "<th>学校</th>"}
             <th>内核家族</th>
             <th>状态</th>
             <th>describe 报告</th>
@@ -177,6 +245,8 @@ function analysisTable(rows, compact = false) {
           ${rows.length ? rows.map((item) => `
             <tr class="${state.selectedDescribe?.id === item.id ? "selected" : ""}" data-select-describe="${item.id}">
               <td>${escapeHtml(item.project || item.title)}</td>
+              <td>${escapeHtml(yearValue(item))}</td>
+              ${compact ? "" : `<td>${escapeHtml(schoolValue(item))}</td>`}
               <td>${escapeHtml(item.family || "待识别")}</td>
               <td><span class="status ${statusClass(item.status)}">${escapeHtml(item.status)}</span></td>
               <td>${reportActions(item, "describe")}</td>
@@ -235,14 +305,16 @@ function riskLabel(risk) {
 }
 
 function renderAnalysis() {
-  const rows = filterByQuery(allDescribe(), ["project", "title", "family"]);
+  const rows = filterByYearSchool(filterByQuery(allDescribe(), ["project", "title", "family", "year", "school"]));
   const selected = state.selectedDescribe || rows[0] || null;
   $("#page-analysis").innerHTML = `
     <section>
       <h1 class="page-title">今年作品分析</h1>
       <p class="subtitle">管理今年参赛作品的 describe 报告、内核家族画像与引用验证结果。</p>
       <div class="toolbar">
-        <input class="input" data-search placeholder="搜索作品 / 内核家族" value="${escapeHtml(state.query)}" />
+        <input class="input" data-search placeholder="搜索作品 / 内核家族 / 学校 / 年份" value="${escapeHtml(state.query)}" />
+        <select class="select" data-year-filter>${optionList(yearOptions(), state.yearFilter)}</select>
+        <select class="select" data-school-filter>${optionList(schoolOptions(), state.schoolFilter)}</select>
         <select class="select"><option>全部状态</option><option>已发布</option><option>分析中</option><option>待复核</option></select>
         <select class="select"><option>全部家族</option><option>ArceOS-Starry</option><option>RISC-V / rCore</option></select>
         <select class="select"><option>引用验证</option><option>已验证</option><option>待验证</option></select>
@@ -262,6 +334,8 @@ function renderAnalysis() {
           </div>
           <h3 style="font-size:24px">${escapeHtml(selected.project || selected.title)}</h3>
           <div class="detail-metrics">
+            <div class="detail-metric"><span>参赛年份</span><strong>${escapeHtml(yearValue(selected))}</strong></div>
+            <div class="detail-metric"><span>学校名称</span><strong>${escapeHtml(schoolValue(selected))}</strong></div>
             <div class="detail-metric"><span>内核家族</span><strong>${escapeHtml(selected.family)}</strong></div>
             <div class="detail-metric"><span>模块覆盖</span><strong>${escapeHtml(selected.modules || "待验证")}</strong></div>
             <div class="detail-metric"><span>syscall</span><strong>${selected.syscallCount || "待确认"}</strong></div>
@@ -286,7 +360,7 @@ function renderAnalysis() {
 }
 
 function renderCompare() {
-  const rows = filterByQuery(allCompare(), ["left", "right", "title"]);
+  const rows = filterByYearSchool(filterByQuery(allCompare(), ["left", "right", "title", "year", "school", "leftYear", "rightYear", "leftSchool", "rightSchool"]));
   const pageSize = 10;
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   state.comparePage = Math.min(Math.max(1, state.comparePage || 1), totalPages);
@@ -303,21 +377,27 @@ function renderCompare() {
         <button class="btn btn-primary" data-upload="compare"><span class="icon">▤</span>报告更新说明</button>
       </div>
       <p style="color:var(--muted); font-weight:700">ⓘ 综合分由函数签名、系统调用、依赖、调用图、目录结构融合。</p>
+      <div class="toolbar compact">
+        <input class="input" data-search placeholder="搜索作品 / 学校 / 年份" value="${escapeHtml(state.query)}" />
+        <select class="select" data-year-filter>${optionList(yearOptions(), state.yearFilter)}</select>
+        <select class="select" data-school-filter>${optionList(schoolOptions(), state.schoolFilter)}</select>
+      </div>
       <div class="grid-compare">
         <article class="card">
           <div class="card-head"><h2 class="card-title">比对任务</h2></div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>作品 A ↔ 历史作品 B</th><th>状态</th><th>综合分</th><th>报告入口</th></tr></thead>
+              <thead><tr><th>作品 A ↔ 历史作品 B</th><th>年份 / 学校</th><th>状态</th><th>综合分</th><th>报告入口</th></tr></thead>
               <tbody>
                 ${rows.length ? pageRows.map((item) => `
                   <tr class="${selected.id === item.id ? "selected" : ""}" data-select-compare="${item.id}">
                     <td>${escapeHtml(item.left)} ↔ ${escapeHtml(item.right)}</td>
+                    <td>${escapeHtml(compareMeta(item))}</td>
                     <td><span class="status ${statusClass(item.status)}">${escapeHtml(item.status)}</span></td>
                     <td class="score">${num(item.score)}</td>
                     <td>${reportActions(item, "compare")}</td>
                   </tr>
-                `).join("") : `<tr><td colspan="4"><div class="empty">服务器 compare 目录暂无比对 Markdown。将报告放入服务器目录后页面会自动读取。</div></td></tr>`}
+                `).join("") : `<tr><td colspan="5"><div class="empty">服务器 compare 目录暂无比对 Markdown。将报告放入服务器目录后页面会自动读取。</div></td></tr>`}
               </tbody>
             </table>
           </div>
@@ -330,6 +410,12 @@ function renderCompare() {
             <span class="risk ${riskClass(selected.risk)}">${escapeHtml(selected.risk)}</span>
           </div>
           <h3 style="font-size:22px">${escapeHtml(selected.left)} ↔ ${escapeHtml(selected.right)} <span class="score" style="float:right; font-size:30px">${num(selected.score)}</span></h3>
+          <div class="detail-metrics">
+            <div class="detail-metric"><span>A 年份</span><strong>${escapeHtml(selected.leftYear || "待补充")}</strong></div>
+            <div class="detail-metric"><span>A 学校</span><strong>${escapeHtml(selected.leftSchool || "待补充")}</strong></div>
+            <div class="detail-metric"><span>B 年份</span><strong>${escapeHtml(selected.rightYear || "待补充")}</strong></div>
+            <div class="detail-metric"><span>B 学校</span><strong>${escapeHtml(selected.rightSchool || "待补充")}</strong></div>
+          </div>
           ${progress("函数签名", selected.signature)}
           ${progress("syscall", selected.syscall)}
           ${progress("依赖", selected.deps)}
@@ -400,7 +486,9 @@ function progress(label, value) {
 
 function renderRanking() {
   const all = allCompare();
-  const filtered = state.rankFilter === "全部" ? all : all.filter((x) => x.risk === state.rankFilter);
+  const riskFiltered = state.rankFilter === "全部" ? all : all.filter((x) => x.risk === state.rankFilter);
+  const filtered = filterByYearSchool(riskFiltered);
+  const rankingRows = filterByQuery(filtered, ["left", "right", "year", "school", "leftYear", "rightYear", "leftSchool", "rightSchool"]);
   $("#page-ranking").innerHTML = `
     <section>
       <h1 class="page-title">实时相似度排名</h1>
@@ -417,20 +505,23 @@ function renderRanking() {
         </div>
       </div>
       <div class="toolbar compact">
-        <input class="input" data-search placeholder="搜索作品或历史基线" value="${escapeHtml(state.query)}" />
+        <input class="input" data-search placeholder="搜索作品 / 历史基线 / 学校 / 年份" value="${escapeHtml(state.query)}" />
+        <select class="select" data-year-filter>${optionList(yearOptions(), state.yearFilter)}</select>
+        <select class="select" data-school-filter>${optionList(schoolOptions(), state.schoolFilter)}</select>
         <select class="select"><option>全部家族</option></select>
       </div>
       <div class="grid-ranking">
         <article class="card">
           <div class="table-wrap" style="padding-top:20px">
             <table>
-              <thead><tr><th>Rank</th><th>今年作品</th><th>最相似历史作品</th><th>综合分</th><th>syscall</th><th>调用图</th><th>目录</th><th>风险等级</th><th>报告</th></tr></thead>
+              <thead><tr><th>Rank</th><th>今年作品</th><th>最相似历史作品</th><th>年份 / 学校</th><th>综合分</th><th>syscall</th><th>调用图</th><th>目录</th><th>风险等级</th><th>报告</th></tr></thead>
               <tbody>
-                ${filterByQuery(filtered, ["left", "right"]).length ? filterByQuery(filtered, ["left", "right"]).slice(0, 10).map((item, i) => `
+                ${rankingRows.length ? rankingRows.slice(0, 10).map((item, i) => `
                   <tr>
                     <td style="font-weight:900; color:${i < 3 ? "var(--red)" : "var(--ink)"}">${String(i + 1).padStart(2, "0")}</td>
                     <td>${escapeHtml(item.left)}</td>
                     <td>${escapeHtml(item.right)}</td>
+                    <td>${escapeHtml(compareMeta(item))}</td>
                     <td class="score">${num(item.score)}</td>
                     <td>${num(item.syscall)}</td>
                     <td>${num(item.callgraph)}</td>
@@ -438,7 +529,7 @@ function renderRanking() {
                     <td><span class="risk ${riskClass(item.risk)}">${riskLabel(item.risk)}</span></td>
                     <td>${reportActions(item, "compare")}</td>
                   </tr>
-                `).join("") : `<tr><td colspan="9"><div class="empty">服务器 compare 目录暂无实时排名数据。报告入库后会自动按综合分排序。</div></td></tr>`}
+                `).join("") : `<tr><td colspan="10"><div class="empty">服务器 compare 目录暂无实时排名数据。报告入库后会自动按综合分排序。</div></td></tr>`}
               </tbody>
             </table>
           </div>
@@ -496,7 +587,9 @@ function renderReports() {
         <div class="card-head"><h2 class="card-title">报告库</h2></div>
         <div class="card-pad" style="padding-top:0">
           <div class="toolbar compact">
-            <input class="input" data-search placeholder="搜索报告 / 作品 / 类型" value="${escapeHtml(state.query)}" />
+            <input class="input" data-search placeholder="搜索报告 / 作品 / 类型 / 学校 / 年份" value="${escapeHtml(state.query)}" />
+            <select class="select" data-year-filter>${optionList(yearOptions(), state.yearFilter)}</select>
+            <select class="select" data-school-filter>${optionList(schoolOptions(), state.schoolFilter)}</select>
             <select class="select" data-report-type-filter>
               ${selectOption("全部类型", state.reportTypeFilter)}
               ${selectOption("项目分析", state.reportTypeFilter)}
@@ -517,19 +610,21 @@ function renderReports() {
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>报告名称</th><th>类型</th><th>关联作品</th><th>引用验证</th><th>状态</th><th>更新时间</th><th>操作</th></tr></thead>
+            <thead><tr><th>报告名称</th><th>类型</th><th>关联作品</th><th>年份</th><th>学校</th><th>引用验证</th><th>状态</th><th>更新时间</th><th>操作</th></tr></thead>
             <tbody>
               ${pageReports.length ? pageReports.map((item) => `
                 <tr data-report-row="${item.id}">
                   <td>${item.type === "compare" ? "↔" : "▤"} ${escapeHtml(item.title)}</td>
                   <td>${item.type === "compare" ? "比对报告" : "项目分析"}</td>
                   <td>${item.type === "compare" ? `${escapeHtml(item.left)} ↔ ${escapeHtml(item.right)}` : escapeHtml(item.project || item.title)}</td>
+                  <td>${escapeHtml(yearValue(item))}</td>
+                  <td>${escapeHtml(schoolValue(item))}</td>
                   <td class="score">${pct(item.citationRate)}</td>
                   <td><span class="status ${statusClass(item.status)}">${escapeHtml(item.status)}</span></td>
                   <td>${fmtDate(item.updatedAt)}</td>
                   <td>${reportActions(item, item.type)}</td>
                 </tr>
-              `).join("") : `<tr><td colspan="7"><div class="empty">服务器报告库为空。将项目分析 MD 放入 describe、比对报告 MD 放入 compare 后，这里会显示真实报告。</div></td></tr>`}
+              `).join("") : `<tr><td colspan="9"><div class="empty">服务器报告库为空。将项目分析 MD 放入 describe、比对报告 MD 放入 compare 后，这里会显示真实报告。</div></td></tr>`}
             </tbody>
           </table>
         </div>
@@ -544,7 +639,7 @@ function selectOption(value, selected) {
 }
 
 function filterReports(reports) {
-  let rows = filterByQuery(reports, ["title", "project", "left", "right", "file", "type"]);
+  let rows = filterByYearSchool(filterByQuery(reports, ["title", "project", "left", "right", "file", "type", "year", "school", "leftYear", "rightYear", "leftSchool", "rightSchool"]));
   if (state.reportTypeFilter === "项目分析") rows = rows.filter((item) => item.type === "describe");
   if (state.reportTypeFilter === "比对报告") rows = rows.filter((item) => item.type === "compare");
   if (state.reportStatusFilter !== "全部状态") rows = rows.filter((item) => item.status === state.reportStatusFilter);
@@ -755,7 +850,7 @@ function wireEvents() {
 
     const comparePage = event.target.closest("[data-compare-page]");
     if (comparePage) {
-      const rows = filterByQuery(allCompare(), ["left", "right", "title"]);
+      const rows = filterByYearSchool(filterByQuery(allCompare(), ["left", "right", "title", "year", "school", "leftYear", "rightYear", "leftSchool", "rightSchool"]));
       const totalPages = Math.max(1, Math.ceil(rows.length / 10));
       const target = comparePage.dataset.comparePage;
       if (target === "prev") state.comparePage -= 1;
@@ -794,6 +889,18 @@ function wireEvents() {
   });
 
   document.addEventListener("change", (event) => {
+    if (event.target.matches("[data-year-filter]")) {
+      state.yearFilter = event.target.value;
+      state.comparePage = 1;
+      state.reportsPage = 1;
+      render();
+    }
+    if (event.target.matches("[data-school-filter]")) {
+      state.schoolFilter = event.target.value;
+      state.comparePage = 1;
+      state.reportsPage = 1;
+      render();
+    }
     if (event.target.matches("[data-report-type-filter]")) {
       state.reportTypeFilter = event.target.value;
       state.reportsPage = 1;

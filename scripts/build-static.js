@@ -23,6 +23,79 @@ function extractTitle(markdown, fallback) {
   return fallback.replace(/\.md$/i, "").replace(/[_-]+/g, " ");
 }
 
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function cleanMetaValue(value) {
+  return String(value || "")
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/\*\*|__|`|#/g, "")
+    .replace(/^\s*[>|-]\s*/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function metadataValue(markdown, labels) {
+  for (const label of labels) {
+    const safe = escapeRegExp(label);
+    const linePattern = new RegExp(`^\\s*>?\\s*(?:\\*\\*)?\\s*[^\\w\\u4e00-\\u9fa5|]{0,4}\\s*${safe}\\s*(?:\\*\\*)?\\s*[:：]\\s*(.+?)\\s*$`, "im");
+    const lineHit = markdown.match(linePattern);
+    if (lineHit) return cleanMetaValue(lineHit[1]);
+
+    const tablePattern = new RegExp(`^\\s*\\|\\s*[^|]*${safe}[^|]*\\|\\s*([^|]+?)\\s*\\|\\s*$`, "im");
+    const tableHit = markdown.match(tablePattern);
+    if (tableHit) return cleanMetaValue(tableHit[1]);
+  }
+  return "";
+}
+
+function pairTableValues(markdown, labels) {
+  const lines = markdown.replace(/\r\n/g, "\n").split("\n");
+  for (const line of lines) {
+    if (!/^\s*\|.+\|\s*$/.test(line)) continue;
+    const cells = line.split("|").slice(1, -1).map(cleanMetaValue);
+    if (cells.length < 3) continue;
+    if (labels.some((label) => cells[0].includes(label))) {
+      return [cells[1], cells[2]];
+    }
+  }
+  return ["", ""];
+}
+
+function normalizeYear(value) {
+  const hit = String(value || "").match(/20\d{2}/);
+  return hit ? hit[0] : "";
+}
+
+function inferYear(markdown, fallback) {
+  const explicit = metadataValue(markdown, ["参赛年份", "作品年份", "比赛年份", "年份", "年度", "Year"]);
+  const explicitYear = normalizeYear(explicit);
+  if (explicitYear) return explicitYear;
+
+  const source = String(fallback || "");
+  const tCode = source.match(/T(20\d{2})\d+/i);
+  if (tCode) return tCode[1];
+  const namedYear = source.match(/(?:OSKernel|Kernel|OS)?(20\d{2})/i);
+  if (namedYear) return namedYear[1];
+  return "待补充";
+}
+
+function inferSchool(markdown) {
+  const school = metadataValue(markdown, ["学校名称", "参赛学校", "团队学校", "学校", "高校", "院校", "School", "University"]);
+  return school || "待补充";
+}
+
+function sideMetadataValue(markdown, sideLabels, fieldLabels) {
+  const labels = [];
+  for (const side of sideLabels) {
+    for (const field of fieldLabels) {
+      labels.push(`${side}${field}`, `${side} ${field}`, `${side}：${field}`);
+    }
+  }
+  return metadataValue(markdown, labels);
+}
+
 function inferFamily(text) {
   const lower = text.toLowerCase();
   if (lower.includes("arceos") || lower.includes("starry")) return "ArceOS-Starry";
@@ -90,11 +163,15 @@ function pairFrom(name, title, text) {
 function analyzeMarkdown(type, file, markdown, stat) {
   const title = extractTitle(markdown, file);
   const rate = citationRate(markdown);
+  const year = inferYear(markdown, `${file} ${title}`);
+  const school = inferSchool(markdown);
   const base = {
     id: `${type}:${file}`,
     type,
     file,
     title,
+    year,
+    school,
     family: inferFamily(markdown),
     status: inferStatus(markdown),
     risk: inferRisk(markdown, type),
@@ -107,10 +184,22 @@ function analyzeMarkdown(type, file, markdown, stat) {
   if (type === "compare") {
     const score = inferScore(markdown);
     const [left, right] = pairFrom(file, title, markdown);
+    const [leftYearFromTable, rightYearFromTable] = pairTableValues(markdown, ["参赛年份", "作品年份", "比赛年份", "年份", "年度"]);
+    const [leftSchoolFromTable, rightSchoolFromTable] = pairTableValues(markdown, ["学校名称", "参赛学校", "团队学校", "学校", "高校", "院校"]);
+    const leftYear = normalizeYear(sideMetadataValue(markdown, ["A", "作品A", "项目A", "左侧", "基准"], ["参赛年份", "作品年份", "年份", "年度"])) || normalizeYear(leftYearFromTable) || inferYear("", left);
+    const rightYear = normalizeYear(sideMetadataValue(markdown, ["B", "作品B", "项目B", "右侧", "历史"], ["参赛年份", "作品年份", "年份", "年度"])) || normalizeYear(rightYearFromTable) || inferYear("", right);
+    const leftSchool = sideMetadataValue(markdown, ["A", "作品A", "项目A", "左侧", "基准"], ["学校名称", "参赛学校", "学校", "高校", "院校"]) || leftSchoolFromTable || "待补充";
+    const rightSchool = sideMetadataValue(markdown, ["B", "作品B", "项目B", "右侧", "历史"], ["学校名称", "参赛学校", "学校", "高校", "院校"]) || rightSchoolFromTable || "待补充";
     return {
       ...base,
       left,
       right,
+      leftYear,
+      rightYear,
+      leftSchool,
+      rightSchool,
+      year: leftYear === rightYear ? leftYear : [leftYear, rightYear].filter((x) => x && x !== "待补充").join(" / ") || "待补充",
+      school: leftSchool === rightSchool ? leftSchool : [leftSchool, rightSchool].filter((x) => x && x !== "待补充").join(" / ") || "待补充",
       score,
       signature: score ? Math.min(0.99, score + 0.06) : 0,
       syscall: score ? Math.max(0.12, score - 0.09) : 0,
@@ -123,7 +212,6 @@ function analyzeMarkdown(type, file, markdown, stat) {
   return {
     ...base,
     project: title.replace(/\s*describe\s*$/i, ""),
-    school: "待补充",
     modules: /模块覆盖[^\d]*(\d+)\s*\/\s*(\d+)/.test(markdown)
       ? markdown.match(/模块覆盖[^\d]*(\d+)\s*\/\s*(\d+)/).slice(1, 3).join("/")
       : "待验证",
