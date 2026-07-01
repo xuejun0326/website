@@ -306,7 +306,6 @@ function riskLabel(risk) {
 
 function renderAnalysis() {
   const rows = filterByYearSchool(filterByQuery(allDescribe(), ["project", "title", "family", "year", "school"]));
-  const selected = state.selectedDescribe || rows[0] || null;
   $("#page-analysis").innerHTML = `
     <section>
       <h1 class="page-title">今年作品分析</h1>
@@ -315,45 +314,14 @@ function renderAnalysis() {
         <input class="input" data-search placeholder="搜索作品 / 内核家族 / 学校 / 年份" value="${escapeHtml(state.query)}" />
         <select class="select" data-year-filter>${optionList(yearOptions(), state.yearFilter)}</select>
         <select class="select" data-school-filter>${optionList(schoolOptions(), state.schoolFilter)}</select>
-        <select class="select"><option>全部状态</option><option>已发布</option><option>分析中</option><option>待复核</option></select>
         <select class="select"><option>全部家族</option><option>ArceOS-Starry</option><option>RISC-V / rCore</option></select>
-        <select class="select"><option>引用验证</option><option>已验证</option><option>待验证</option></select>
         <button class="btn btn-primary" data-upload="describe"><span class="icon">⇧</span>报告更新说明</button>
       </div>
-      <div class="grid-detail">
-        <article class="card">
-          <div class="card-head"><h2 class="card-title">作品列表</h2></div>
-          ${analysisTable(rows.slice(0, 8), false)}
-          <div class="pagination"><span>共 ${rows.length} 项</span><span class="spacer"></span><button class="page-btn">‹</button><button class="page-btn active">1</button><button class="page-btn">›</button><select class="select" style="width:120px"><option>10 条/页</option></select></div>
-        </article>
-        <aside class="card card-pad">
-          ${selected ? `
-          <div style="display:flex; justify-content:space-between; gap:12px; align-items:center">
-            <h2 class="card-title">作品摘要</h2>
-            <span class="status blue">当前选中</span>
-          </div>
-          <h3 style="font-size:24px">${escapeHtml(selected.project || selected.title)}</h3>
-          <div class="detail-metrics">
-            <div class="detail-metric"><span>参赛年份</span><strong>${escapeHtml(yearValue(selected))}</strong></div>
-            <div class="detail-metric"><span>学校名称</span><strong>${escapeHtml(schoolValue(selected))}</strong></div>
-            <div class="detail-metric"><span>内核家族</span><strong>${escapeHtml(selected.family)}</strong></div>
-            <div class="detail-metric"><span>模块覆盖</span><strong>${escapeHtml(selected.modules || "待验证")}</strong></div>
-            <div class="detail-metric"><span>syscall</span><strong>${selected.syscallCount || "待确认"}</strong></div>
-            <div class="detail-metric"><span>风险提示</span><strong><span class="risk ${riskClass(selected.risk)}">${escapeHtml(selected.risk)}</span></strong></div>
-          </div>
-          <h3>关键模块</h3>
-          <ul class="module-list">
-            ${["boot", "mm", "syscall", "fs"].map((m, i) => `<li><span>${m}</span><span class="${i < 3 ? "score" : ""}">${i < 3 ? "已分析" : "部分验证"}</span></li>`).join("")}
-          </ul>
-          <h3>开放问题</h3>
-          <ul class="issue-list">
-            <li>引用待复核</li>
-            <li>驱动章节需补充</li>
-            <li>syscall stub 比例待确认</li>
-          </ul>
-          ` : `<h2 class="card-title">作品摘要</h2><div class="empty">服务器 describe 目录暂无可展示作品。报告入库后，这里会显示作品摘要、关键模块和开放问题。</div>`}
-        </aside>
-      </div>
+      <article class="card">
+        <div class="card-head"><h2 class="card-title">作品列表</h2></div>
+        ${analysisTable(rows.slice(0, 8), false)}
+        <div class="pagination"><span>共 ${rows.length} 项</span><span class="spacer"></span><button class="page-btn">‹</button><button class="page-btn active">1</button><button class="page-btn">›</button><select class="select" style="width:120px"><option>10 条/页</option></select></div>
+      </article>
       ${uploadStrip("describe", "管理员维护入口：追加项目分析 Markdown 到服务器 describe 目录")}
     </section>
   `;
