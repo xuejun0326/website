@@ -35,8 +35,8 @@ state.reports.compare = Array.from({ length: 12 }, (_, index) => ({
   type: "compare",
   file: "item-" + (index + 1) + ".md",
   title: "item-" + (index + 1),
-  left: "Project-" + (index + 1),
-  right: "Base-" + (index + 1),
+  left: index < 3 ? "Project-A" : index < 6 ? "Project-B" : "Project-" + (index + 1),
+  right: index < 3 ? "Base-A-" + (index + 1) : "Base-" + (index + 1),
   score: 1 - index / 100,
   status: "已发布",
   risk: "低风险",
@@ -56,6 +56,16 @@ globalThis.firstPageHtml = document.querySelector("#page-compare").innerHTML;
 state.comparePage = 2;
 renderCompare();
 globalThis.secondPageHtml = document.querySelector("#page-compare").innerHTML;
+
+state.compareLeftFilter = "Project-A";
+state.compareRightFilter = "全部历史作品";
+state.comparePage = 1;
+renderCompare();
+globalThis.leftFilteredHtml = document.querySelector("#page-compare").innerHTML;
+
+state.compareRightFilter = "Base-A-2";
+renderCompare();
+globalThis.rightFilteredHtml = document.querySelector("#page-compare").innerHTML;
 `;
 
 vm.runInContext(testCode, context);
@@ -70,3 +80,16 @@ assert.doesNotMatch(context.firstPageHtml, /data-select-compare="compare:item-11
 assert.match(context.secondPageHtml, /data-select-compare="compare:item-11"/);
 assert.match(context.secondPageHtml, /data-select-compare="compare:item-12"/);
 assert.doesNotMatch(context.secondPageHtml, /data-select-compare="compare:item-1"/);
+assert.match(context.firstPageHtml, /data-compare-left-filter/);
+assert.match(context.firstPageHtml, /<option value="Project-A"/);
+assert.match(context.firstPageHtml, /<option value="Project-B"/);
+assert.match(context.firstPageHtml, /data-compare-right-filter/);
+assert.match(context.leftFilteredHtml, /value="Project-A" selected/);
+assert.strictEqual((context.leftFilteredHtml.match(/data-select-compare=/g) || []).length, 3, "left filter should show existing compare rows for that project");
+assert.match(context.leftFilteredHtml, /<option value="Base-A-1"/);
+assert.match(context.leftFilteredHtml, /<option value="Base-A-2"/);
+assert.doesNotMatch(context.leftFilteredHtml, /<option value="Base-4"/);
+assert.strictEqual((context.rightFilteredHtml.match(/data-select-compare=/g) || []).length, 1, "right filter should show the selected existing compare row");
+assert.match(context.rightFilteredHtml, /value="Base-A-2" selected/);
+assert.match(context.rightFilteredHtml, /data-select-compare="compare:item-2"/);
+assert.doesNotMatch(context.rightFilteredHtml, /data-select-compare="compare:item-1"/);

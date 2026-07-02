@@ -12,10 +12,15 @@ const state = {
   yearFilter: "全部年份",
   schoolFilter: "全部学校",
   familyFilter: "全部家族",
+  compareLeftFilter: "全部今年作品",
+  compareRightFilter: "全部历史作品",
   rankFilter: "全部",
   query: "",
   staticMode: false
 };
+
+const COMPARE_LEFT_ALL = "全部今年作品";
+const COMPARE_RIGHT_ALL = "全部历史作品";
 
 function $(selector, root = document) {
   return root.querySelector(selector);
@@ -121,6 +126,25 @@ function filterByYearSchool(items) {
 
 function filterAnalysisRows() {
   return filterByYearSchool(filterByQuery(allDescribe(), ["project", "title", "family", "year", "school"])).filter(matchesFamily);
+}
+
+function compareLeftOptions() {
+  return [COMPARE_LEFT_ALL, ...uniq(allCompare().map((item) => item.left || "待补充"))];
+}
+
+function compareRightOptions() {
+  const rows = allCompare().filter((item) => state.compareLeftFilter === COMPARE_LEFT_ALL || item.left === state.compareLeftFilter);
+  return [COMPARE_RIGHT_ALL, ...uniq(rows.map((item) => item.right || "待补充"))];
+}
+
+function matchesComparePair(item) {
+  if (state.compareLeftFilter !== COMPARE_LEFT_ALL && item.left !== state.compareLeftFilter) return false;
+  if (state.compareRightFilter !== COMPARE_RIGHT_ALL && item.right !== state.compareRightFilter) return false;
+  return true;
+}
+
+function filterCompareRows() {
+  return filterByYearSchool(filterByQuery(allCompare(), ["left", "right", "title", "year", "school", "leftYear", "rightYear", "leftSchool", "rightSchool"])).filter(matchesComparePair);
 }
 
 function compareMeta(item) {
@@ -348,20 +372,23 @@ function renderAnalysis() {
 }
 
 function renderCompare() {
-  const rows = filterByYearSchool(filterByQuery(allCompare(), ["left", "right", "title", "year", "school", "leftYear", "rightYear", "leftSchool", "rightSchool"]));
+  const rows = filterCompareRows();
+  const leftOptions = compareLeftOptions();
+  const rightOptions = compareRightOptions();
+  if (!rightOptions.includes(state.compareRightFilter)) state.compareRightFilter = COMPARE_RIGHT_ALL;
   const pageSize = 10;
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   state.comparePage = Math.min(Math.max(1, state.comparePage || 1), totalPages);
   const pageStart = (state.comparePage - 1) * pageSize;
   const pageRows = rows.slice(pageStart, pageStart + pageSize);
-  const selected = state.selectedCompare || rows[0] || null;
+  const selected = rows.find((item) => item.id === state.selectedCompare?.id) || rows[0] || null;
   $("#page-compare").innerHTML = `
     <section>
       <h1 class="page-title">历年作品比对</h1>
       <p class="subtitle">选择今年作品与历史基线，生成结构化 compare 报告。</p>
       <div class="compare-picker">
-        <div class="select-card"><span>选择今年作品：</span><strong>${escapeHtml(selected?.left || "等待入库")}</strong></div>
-        <div class="select-card"><span>选择历史作品：</span><strong>${escapeHtml(selected?.right || "等待入库")}</strong></div>
+        <label class="select-card"><span>选择今年作品：</span><select class="select" data-compare-left-filter ${leftOptions.length <= 1 ? "disabled" : ""}>${optionList(leftOptions, state.compareLeftFilter)}</select></label>
+        <label class="select-card"><span>选择历史作品：</span><select class="select" data-compare-right-filter ${rightOptions.length <= 1 ? "disabled" : ""}>${optionList(rightOptions, state.compareRightFilter)}</select></label>
         <button class="btn btn-primary" data-upload="compare"><span class="icon">▤</span>报告更新说明</button>
       </div>
       <p style="color:var(--muted); font-weight:700">ⓘ 综合分由函数签名、系统调用、依赖、调用图、目录结构融合。</p>
@@ -850,7 +877,7 @@ function wireEvents() {
 
     const comparePage = event.target.closest("[data-compare-page]");
     if (comparePage) {
-      const rows = filterByYearSchool(filterByQuery(allCompare(), ["left", "right", "title", "year", "school", "leftYear", "rightYear", "leftSchool", "rightSchool"]));
+      const rows = filterCompareRows();
       const totalPages = Math.max(1, Math.ceil(rows.length / 10));
       const target = comparePage.dataset.comparePage;
       if (target === "prev") state.comparePage -= 1;
@@ -908,6 +935,19 @@ function wireEvents() {
       state.familyFilter = event.target.value;
       state.analysisPage = 1;
       renderAnalysis();
+    }
+    if (event.target.matches("[data-compare-left-filter]")) {
+      state.compareLeftFilter = event.target.value;
+      state.compareRightFilter = COMPARE_RIGHT_ALL;
+      state.selectedCompare = null;
+      state.comparePage = 1;
+      renderCompare();
+    }
+    if (event.target.matches("[data-compare-right-filter]")) {
+      state.compareRightFilter = event.target.value;
+      state.selectedCompare = null;
+      state.comparePage = 1;
+      renderCompare();
     }
     if (event.target.matches("[data-report-type-filter]")) {
       state.reportTypeFilter = event.target.value;

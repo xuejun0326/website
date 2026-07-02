@@ -657,6 +657,7 @@ tbody tr:hover {
 .select-card {
   display: flex;
   align-items: center;
+  gap: 14px;
   min-height: 52px;
   padding: 0 16px;
   border: 1px solid var(--line);
@@ -665,10 +666,23 @@ tbody tr:hover {
 }
 
 .select-card span {
+  flex: 0 0 auto;
   color: var(--muted);
   border-right: 1px solid var(--line);
   padding-right: 14px;
-  margin-right: 14px;
+}
+
+.select-card .select {
+  min-width: 0;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-weight: 800;
+}
+
+.select-card .select:focus {
+  box-shadow: none;
 }
 
 .progress-row {
