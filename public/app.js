@@ -3,6 +3,7 @@ const state = {
   reports: { describe: [], compare: [] },
   selectedDescribe: null,
   selectedCompare: null,
+  analysisPage: 1,
   comparePage: 1,
   reportsPage: 1,
   reportTypeFilter: "全部类型",
@@ -306,6 +307,11 @@ function riskLabel(risk) {
 
 function renderAnalysis() {
   const rows = filterByYearSchool(filterByQuery(allDescribe(), ["project", "title", "family", "year", "school"]));
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  state.analysisPage = Math.min(Math.max(1, state.analysisPage || 1), totalPages);
+  const pageStart = (state.analysisPage - 1) * pageSize;
+  const pageRows = rows.slice(pageStart, pageStart + pageSize);
   $("#page-analysis").innerHTML = `
     <section>
       <h1 class="page-title">今年作品分析</h1>
@@ -319,8 +325,8 @@ function renderAnalysis() {
       </div>
       <article class="card">
         <div class="card-head"><h2 class="card-title">作品列表</h2></div>
-        ${analysisTable(rows.slice(0, 8), false)}
-        <div class="pagination"><span>共 ${rows.length} 项</span><span class="spacer"></span><button class="page-btn">‹</button><button class="page-btn active">1</button><button class="page-btn">›</button><select class="select" style="width:120px"><option>10 条/页</option></select></div>
+        ${analysisTable(pageRows, false)}
+        ${pagination(rows.length, pageSize, state.analysisPage, "data-analysis-page")}
       </article>
       ${uploadStrip("describe", "管理员维护入口：追加项目分析 Markdown 到服务器 describe 目录")}
     </section>
@@ -809,6 +815,18 @@ function wireEvents() {
       renderAnalysis();
     }
 
+    const analysisPage = event.target.closest("[data-analysis-page]");
+    if (analysisPage) {
+      const rows = filterByYearSchool(filterByQuery(allDescribe(), ["project", "title", "family", "year", "school"]));
+      const totalPages = Math.max(1, Math.ceil(rows.length / 10));
+      const target = analysisPage.dataset.analysisPage;
+      if (target === "prev") state.analysisPage -= 1;
+      else if (target === "next") state.analysisPage += 1;
+      else state.analysisPage = Number(target);
+      state.analysisPage = Math.min(Math.max(1, state.analysisPage), totalPages);
+      renderAnalysis();
+    }
+
     const rowC = event.target.closest("[data-select-compare]");
     if (rowC && !event.target.closest("button,a")) {
       const id = rowC.dataset.selectCompare;
@@ -850,6 +868,7 @@ function wireEvents() {
   document.addEventListener("input", (event) => {
     if (event.target.matches("[data-search]")) {
       state.query = event.target.value;
+      state.analysisPage = 1;
       state.comparePage = 1;
       state.reportsPage = 1;
       render();
@@ -859,12 +878,14 @@ function wireEvents() {
   document.addEventListener("change", (event) => {
     if (event.target.matches("[data-year-filter]")) {
       state.yearFilter = event.target.value;
+      state.analysisPage = 1;
       state.comparePage = 1;
       state.reportsPage = 1;
       render();
     }
     if (event.target.matches("[data-school-filter]")) {
       state.schoolFilter = event.target.value;
+      state.analysisPage = 1;
       state.comparePage = 1;
       state.reportsPage = 1;
       render();
