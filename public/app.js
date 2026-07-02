@@ -227,7 +227,7 @@ function metric(icon, label, value, suffix = "") {
 }
 
 function analysisTable(rows, compact = false) {
-  const colSpan = compact ? 6 : 8;
+  const colSpan = compact ? 5 : 8;
   return `
     <div class="table-wrap">
       <table>
@@ -239,7 +239,7 @@ function analysisTable(rows, compact = false) {
             <th>内核家族</th>
             <th>状态</th>
             <th>describe 报告</th>
-            ${compact ? "<th>风险提示</th>" : "<th>引用合法率</th><th>更新时间</th>"}
+            ${compact ? "" : "<th>引用合法率</th><th>更新时间</th>"}
           </tr>
         </thead>
         <tbody>
@@ -252,7 +252,7 @@ function analysisTable(rows, compact = false) {
               <td><span class="status ${statusClass(item.status)}">${escapeHtml(item.status)}</span></td>
               <td>${reportActions(item, "describe")}</td>
               ${compact
-                ? `<td><span class="risk ${riskClass(item.risk)}">${escapeHtml(item.risk)}</span></td>`
+                ? ""
                 : `<td class="score">${pct(item.citationRate)}</td><td>${fmtDate(item.updatedAt)}</td>`}
             </tr>
           `).join("") : `<tr><td colspan="${colSpan}"><div class="empty">服务器 describe 目录暂无项目分析 Markdown。将报告放入服务器目录后页面会自动读取。</div></td></tr>`}
