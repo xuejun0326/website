@@ -137,6 +137,18 @@ function compareRightOptions() {
   return [COMPARE_RIGHT_ALL, ...uniq(rows.map((item) => item.right || "待补充"))];
 }
 
+function syncCompareFilters() {
+  const leftOptions = compareLeftOptions();
+  if (!leftOptions.includes(state.compareLeftFilter)) {
+    state.compareLeftFilter = COMPARE_LEFT_ALL;
+  }
+  const rightOptions = compareRightOptions();
+  if (!rightOptions.includes(state.compareRightFilter)) {
+    state.compareRightFilter = COMPARE_RIGHT_ALL;
+  }
+  return { leftOptions, rightOptions };
+}
+
 function matchesComparePair(item) {
   if (state.compareLeftFilter !== COMPARE_LEFT_ALL && item.left !== state.compareLeftFilter) return false;
   if (state.compareRightFilter !== COMPARE_RIGHT_ALL && item.right !== state.compareRightFilter) return false;
@@ -372,10 +384,8 @@ function renderAnalysis() {
 }
 
 function renderCompare() {
+  const { leftOptions, rightOptions } = syncCompareFilters();
   const rows = filterCompareRows();
-  const leftOptions = compareLeftOptions();
-  const rightOptions = compareRightOptions();
-  if (!rightOptions.includes(state.compareRightFilter)) state.compareRightFilter = COMPARE_RIGHT_ALL;
   const pageSize = 10;
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   state.comparePage = Math.min(Math.max(1, state.comparePage || 1), totalPages);

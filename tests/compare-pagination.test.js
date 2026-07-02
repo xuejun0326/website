@@ -66,6 +66,11 @@ globalThis.leftFilteredHtml = document.querySelector("#page-compare").innerHTML;
 state.compareRightFilter = "Base-A-2";
 renderCompare();
 globalThis.rightFilteredHtml = document.querySelector("#page-compare").innerHTML;
+
+state.compareLeftFilter = "Project-B";
+renderCompare();
+globalThis.changedLeftHtml = document.querySelector("#page-compare").innerHTML;
+globalThis.changedRightFilter = state.compareRightFilter;
 `;
 
 vm.runInContext(testCode, context);
@@ -93,3 +98,8 @@ assert.strictEqual((context.rightFilteredHtml.match(/data-select-compare=/g) || 
 assert.match(context.rightFilteredHtml, /value="Base-A-2" selected/);
 assert.match(context.rightFilteredHtml, /data-select-compare="compare:item-2"/);
 assert.doesNotMatch(context.rightFilteredHtml, /data-select-compare="compare:item-1"/);
+assert.strictEqual(context.changedRightFilter, "全部历史作品", "invalid historical selection should reset after changing current project");
+assert.match(context.changedLeftHtml, /value="Project-B" selected/);
+assert.match(context.changedLeftHtml, /<option value="Base-4"/);
+assert.match(context.changedLeftHtml, /data-select-compare="compare:item-4"/);
+assert.doesNotMatch(context.changedLeftHtml, /<option value="Base-A-2"/);
