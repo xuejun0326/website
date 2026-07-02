@@ -1,10 +1,17 @@
 # OSKernel2025-StarryX-3037 内核代码分析报告
 
-> **生成时间**: 2026-06-16T09:23:39.282737+00:00  
-> **家族**: `arceos-starry` · workspace=[xapi, xcore, starry]  
-> **代码量**: 674 文件 / 51445 行  
-> **syscall**: 239 项  
-> **运行时长**: 370.4s · prompt=330939 · completion=30113 · reasoning=201
+| 项 | 值 |
+| --- | --- |
+| 📅 报告生成 | 2026-06-16T09:23:39.282737+00:00 |
+| 🏷 内核家族 | `arceos-starry` |
+| 🗓 参赛年份 | 2023 |
+| 🏫 学校 | 清华大学 |
+| 👥 队伍 | Starry |
+| 🔗 仓库地址 | https://gitlab.eduxiji.net/educg-group-36002-2710490/starry-mix |
+| 📚 Workspace | `xapi, xcore, starry` |
+| 📊 代码量 | **674** 文件 · **51445** 行 |
+| 🔌 syscall | **239** 项 |
+| ⏱ 运行时长 | **370.4s** · prompt=330,939 · completion=30,113 · reasoning=201 |
 
 ## 一、总览
 
