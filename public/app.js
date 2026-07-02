@@ -538,14 +538,13 @@ function renderRanking() {
         <article class="card">
           <div class="table-wrap" style="padding-top:20px">
             <table>
-              <thead><tr><th>Rank</th><th>今年作品</th><th>最相似历史作品</th><th>年份 / 学校</th><th>综合分</th><th>syscall</th><th>调用图</th><th>目录</th><th>风险等级</th><th>报告</th></tr></thead>
+              <thead><tr><th>Rank</th><th>今年作品</th><th>最相似历史作品</th><th>综合分</th><th>syscall</th><th>调用图</th><th>目录</th><th>风险等级</th><th>报告</th></tr></thead>
               <tbody>
                 ${rankingRows.length ? rankingRows.slice(0, 10).map((item, i) => `
                   <tr>
                     <td style="font-weight:900; color:${i < 3 ? "var(--red)" : "var(--ink)"}">${String(i + 1).padStart(2, "0")}</td>
                     <td>${escapeHtml(item.left)}</td>
                     <td>${escapeHtml(item.right)}</td>
-                    <td>${escapeHtml(compareMeta(item))}</td>
                     <td class="score">${num(item.score)}</td>
                     <td>${num(item.syscall)}</td>
                     <td>${num(item.callgraph)}</td>
@@ -553,7 +552,7 @@ function renderRanking() {
                     <td><span class="risk ${riskClass(item.risk)}">${riskLabel(item.risk)}</span></td>
                     <td>${reportActions(item, "compare")}</td>
                   </tr>
-                `).join("") : `<tr><td colspan="10"><div class="empty">服务器 compare 目录暂无实时排名数据。报告入库后会自动按综合分排序。</div></td></tr>`}
+                `).join("") : `<tr><td colspan="9"><div class="empty">服务器 compare 目录暂无实时排名数据。报告入库后会自动按综合分排序。</div></td></tr>`}
               </tbody>
             </table>
           </div>
