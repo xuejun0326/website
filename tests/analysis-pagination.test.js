@@ -41,7 +41,7 @@ state.reports.describe = Array.from({ length: 23 }, (_, index) => ({
   project: "DescribeProject-" + (index + 1),
   year: "2026",
   school: "School",
-  family: "Family",
+  family: "Family-" + ((index % 3) + 1),
   status: "已发布",
   risk: "正常",
   citationRate: 100,
@@ -59,6 +59,11 @@ globalThis.secondPageHtml = document.querySelector("#page-analysis").innerHTML;
 state.analysisPage = 3;
 renderAnalysis();
 globalThis.thirdPageHtml = document.querySelector("#page-analysis").innerHTML;
+
+state.familyFilter = "Family-2";
+state.analysisPage = 1;
+renderAnalysis();
+globalThis.familyFilterHtml = document.querySelector("#page-analysis").innerHTML;
 `;
 
 vm.runInContext(testCode, context);
@@ -76,3 +81,11 @@ assert.match(context.secondPageHtml, /DescribeProject-11/);
 assert.match(context.secondPageHtml, /data-analysis-page="next"/);
 assert.match(context.secondPageHtml, /共 23 条，显示 11-20/);
 assert.match(context.thirdPageHtml, /DescribeProject-23/);
+assert.match(context.firstPageHtml, /<option value="Family-1"/);
+assert.match(context.firstPageHtml, /<option value="Family-2"/);
+assert.match(context.firstPageHtml, /<option value="Family-3"/);
+assert.strictEqual(rowCount(context.familyFilterHtml), 8, "family filter should render matching rows only");
+assert.match(context.familyFilterHtml, /共 8 条，显示 1-8/);
+assert.match(context.familyFilterHtml, /value="Family-2" selected/);
+assert.match(context.familyFilterHtml, /DescribeProject-2/);
+assert.doesNotMatch(context.familyFilterHtml, />DescribeProject-1</);

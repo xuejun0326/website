@@ -11,6 +11,7 @@ const state = {
   reportCitationFilter: "引用验证",
   yearFilter: "全部年份",
   schoolFilter: "全部学校",
+  familyFilter: "全部家族",
   rankFilter: "全部",
   query: "",
   staticMode: false
@@ -91,6 +92,10 @@ function schoolOptions() {
   return ["全部学校", ...uniq(values)];
 }
 
+function familyOptions() {
+  return ["全部家族", ...uniq(state.reports.describe.map((item) => item.family || "待识别"))];
+}
+
 function optionList(values, selected) {
   return values.map((value) => selectOption(value, selected)).join("");
 }
@@ -105,8 +110,17 @@ function matchesSchool(item) {
   return [item.school, item.leftSchool, item.rightSchool].some((value) => String(value || "") === state.schoolFilter);
 }
 
+function matchesFamily(item) {
+  if (state.familyFilter === "全部家族") return true;
+  return String(item.family || "待识别") === state.familyFilter;
+}
+
 function filterByYearSchool(items) {
   return items.filter((item) => matchesYear(item) && matchesSchool(item));
+}
+
+function filterAnalysisRows() {
+  return filterByYearSchool(filterByQuery(allDescribe(), ["project", "title", "family", "year", "school"])).filter(matchesFamily);
 }
 
 function compareMeta(item) {
@@ -306,7 +320,7 @@ function riskLabel(risk) {
 }
 
 function renderAnalysis() {
-  const rows = filterByYearSchool(filterByQuery(allDescribe(), ["project", "title", "family", "year", "school"]));
+  const rows = filterAnalysisRows();
   const pageSize = 10;
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   state.analysisPage = Math.min(Math.max(1, state.analysisPage || 1), totalPages);
@@ -320,7 +334,7 @@ function renderAnalysis() {
         <input class="input" data-search placeholder="搜索作品 / 内核家族 / 学校 / 年份" value="${escapeHtml(state.query)}" />
         <select class="select" data-year-filter>${optionList(yearOptions(), state.yearFilter)}</select>
         <select class="select" data-school-filter>${optionList(schoolOptions(), state.schoolFilter)}</select>
-        <select class="select"><option>全部家族</option><option>ArceOS-Starry</option><option>RISC-V / rCore</option></select>
+        <select class="select" data-family-filter>${optionList(familyOptions(), state.familyFilter)}</select>
         <button class="btn btn-primary" data-upload="describe"><span class="icon">⇧</span>报告更新说明</button>
       </div>
       <article class="card">
@@ -817,7 +831,7 @@ function wireEvents() {
 
     const analysisPage = event.target.closest("[data-analysis-page]");
     if (analysisPage) {
-      const rows = filterByYearSchool(filterByQuery(allDescribe(), ["project", "title", "family", "year", "school"]));
+      const rows = filterAnalysisRows();
       const totalPages = Math.max(1, Math.ceil(rows.length / 10));
       const target = analysisPage.dataset.analysisPage;
       if (target === "prev") state.analysisPage -= 1;
@@ -889,6 +903,11 @@ function wireEvents() {
       state.comparePage = 1;
       state.reportsPage = 1;
       render();
+    }
+    if (event.target.matches("[data-family-filter]")) {
+      state.familyFilter = event.target.value;
+      state.analysisPage = 1;
+      renderAnalysis();
     }
     if (event.target.matches("[data-report-type-filter]")) {
       state.reportTypeFilter = event.target.value;
