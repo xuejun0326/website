@@ -46,10 +46,10 @@ button {
   top: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: 320px 1fr auto;
+  grid-template-columns: minmax(560px, 1.15fr) minmax(430px, 1fr) auto;
   align-items: center;
-  height: 82px;
-  padding: 0 28px;
+  min-height: 104px;
+  padding: 14px 28px;
   background: rgba(255, 255, 255, 0.96);
   border-bottom: 1px solid var(--line);
   backdrop-filter: blur(12px);
@@ -57,9 +57,11 @@ button {
 
 .brand {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 14px;
-  width: fit-content;
+  column-gap: 14px;
+  row-gap: 4px;
+  width: min(100%, 760px);
 }
 
 .brand-main {
@@ -71,6 +73,14 @@ button {
 .brand-sub {
   font-size: 20px;
   color: #071843;
+}
+
+.brand-event {
+  flex-basis: 100%;
+  color: #071843;
+  font-size: 23px;
+  font-weight: 900;
+  line-height: 1.22;
 }
 
 .nav {
