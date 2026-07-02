@@ -412,17 +412,16 @@ function renderCompare() {
           <div class="card-head"><h2 class="card-title">比对任务</h2></div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>作品 A ↔ 历史作品 B</th><th>年份 / 学校</th><th>状态</th><th>综合分</th><th>报告入口</th></tr></thead>
+              <thead><tr><th>作品 A ↔ 历史作品 B</th><th>状态</th><th>综合分</th><th>报告入口</th></tr></thead>
               <tbody>
                 ${rows.length ? pageRows.map((item) => `
                   <tr class="${selected.id === item.id ? "selected" : ""}" data-select-compare="${item.id}">
                     <td>${escapeHtml(item.left)} ↔ ${escapeHtml(item.right)}</td>
-                    <td>${escapeHtml(compareMeta(item))}</td>
                     <td><span class="status ${statusClass(item.status)}">${escapeHtml(item.status)}</span></td>
                     <td class="score">${num(item.score)}</td>
                     <td>${reportActions(item, "compare")}</td>
                   </tr>
-                `).join("") : `<tr><td colspan="5"><div class="empty">服务器 compare 目录暂无比对 Markdown。将报告放入服务器目录后页面会自动读取。</div></td></tr>`}
+                `).join("") : `<tr><td colspan="4"><div class="empty">服务器 compare 目录暂无比对 Markdown。将报告放入服务器目录后页面会自动读取。</div></td></tr>`}
               </tbody>
             </table>
           </div>
