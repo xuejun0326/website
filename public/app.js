@@ -14,7 +14,6 @@ const state = {
   familyFilter: "全部家族",
   compareLeftFilter: "全部今年作品",
   compareRightFilter: "全部历史作品",
-  rankFilter: "全部",
   query: "",
   staticMode: false
 };
@@ -227,7 +226,6 @@ function render() {
   renderHome();
   renderAnalysis();
   renderCompare();
-  renderRanking();
   renderReports();
 }
 
@@ -245,24 +243,14 @@ function renderHome() {
         ${metric("✓", "引用验证", "99.24", "%")}
         ${metric("!", "待复核", pending)}
       </div>
-      <div class="grid-2">
-        <article class="card">
-          <div class="card-head">
-            <h2 class="card-title">今年作品分析进度</h2>
-            <button class="link" data-page-jump="analysis">查看全部 →</button>
-          </div>
-          ${analysisTable(describe.slice(0, 5), true)}
-          <div class="pagination"><span class="spacer"></span><button class="link" data-page-jump="analysis">查看全部作品分析 →</button><span class="spacer"></span></div>
-        </article>
-        <article class="card">
-          <div class="card-head">
-            <div><h2 class="card-title">实时相似度排名</h2><p class="eyebrow">Top 5</p></div>
-            <button class="link" data-page-jump="ranking">查看全部 →</button>
-          </div>
-          ${rankingList(compare.slice(0, 5))}
-          <div class="pagination"><span class="spacer"></span><button class="link" data-page-jump="ranking">查看完整排名 →</button><span class="spacer"></span></div>
-        </article>
-      </div>
+      <article class="card">
+        <div class="card-head">
+          <h2 class="card-title">今年作品分析进度</h2>
+          <button class="link" data-page-jump="analysis">查看全部 →</button>
+        </div>
+        ${analysisTable(describe.slice(0, 5), true)}
+        <div class="pagination"><span class="spacer"></span><button class="link" data-page-jump="analysis">查看全部作品分析 →</button><span class="spacer"></span></div>
+      </article>
     </section>
   `;
 }
@@ -327,32 +315,6 @@ function downloadUrl(type, file) {
   return state.staticMode
     ? staticReportUrl(type, file)
     : `/download/${type}/${encodeURIComponent(file)}`;
-}
-
-function rankingList(items) {
-  if (!items.length) {
-    return `<div class="empty">服务器 compare 目录暂无比对报告。报告写入服务器目录后会自动生成实时排名。</div>`;
-  }
-  return `
-    <div class="ranking-list">
-      ${items.map((item, index) => `
-        <div class="rank-row">
-          <span class="rank-no ${index > 2 ? "low" : ""}">${String(index + 1).padStart(2, "0")}</span>
-          <strong>${escapeHtml(item.left)}</strong>
-          <span>↔</span>
-          <span>${escapeHtml(item.right)}</span>
-          <span>${num(item.score)}</span>
-          <span class="risk ${riskClass(item.risk)}">${riskLabel(item.risk)}</span>
-        </div>
-      `).join("")}
-    </div>
-  `;
-}
-
-function riskLabel(risk) {
-  if (/高/.test(risk)) return "高";
-  if (/中/.test(risk)) return "中";
-  return "低";
 }
 
 function renderAnalysis() {
@@ -506,82 +468,6 @@ function pagination(total, pageSize, currentPage, dataAttr) {
 function progress(label, value) {
   const v = Math.max(0, Math.min(1, Number(value || 0)));
   return `<div class="progress-row"><strong>${label}</strong><div class="bar"><span style="width:${v * 100}%"></span></div><span>${num(v)}</span></div>`;
-}
-
-function renderRanking() {
-  const all = allCompare();
-  const riskFiltered = state.rankFilter === "全部" ? all : all.filter((x) => x.risk === state.rankFilter);
-  const filtered = filterByYearSchool(riskFiltered);
-  const rankingRows = filterByQuery(filtered, ["left", "right", "year", "school", "leftYear", "rightYear", "leftSchool", "rightSchool"]);
-  $("#page-ranking").innerHTML = `
-    <section>
-      <h1 class="page-title">实时相似度排名</h1>
-      <p class="subtitle">按综合相似度动态排序，快速发现需要复核的作品与历史基线。</p>
-      <div style="display:flex; justify-content:space-between; align-items:end; gap:24px; flex-wrap:wrap">
-        <div class="segment">
-          ${["全部", "高风险", "中风险", "低风险"].map((x) => `<button class="${state.rankFilter === x ? "active" : ""}" data-rank-filter="${x}">${x}</button>`).join("")}
-        </div>
-        <div class="panel-stats">
-          <div class="panel-stat"><span>最高分</span><strong style="color:var(--teal)">${num(all[0]?.score || 0)}</strong></div>
-          <div class="panel-stat"><span>高风险</span><strong style="color:var(--red)">${all.filter((x) => x.risk === "高风险").length}</strong></div>
-          <div class="panel-stat"><span>中风险</span><strong style="color:var(--orange)">${all.filter((x) => x.risk === "中风险").length}</strong></div>
-          <div class="panel-stat"><span>低风险</span><strong style="color:var(--blue)">${all.filter((x) => x.risk === "低风险").length}</strong></div>
-        </div>
-      </div>
-      <div class="toolbar compact">
-        <input class="input" data-search placeholder="搜索作品 / 历史基线 / 学校 / 年份" value="${escapeHtml(state.query)}" />
-        <select class="select" data-year-filter>${optionList(yearOptions(), state.yearFilter)}</select>
-        <select class="select" data-school-filter>${optionList(schoolOptions(), state.schoolFilter)}</select>
-        <select class="select"><option>全部家族</option></select>
-      </div>
-      <div class="grid-ranking">
-        <article class="card">
-          <div class="table-wrap" style="padding-top:20px">
-            <table>
-              <thead><tr><th>Rank</th><th>今年作品</th><th>最相似历史作品</th><th>综合分</th><th>syscall</th><th>调用图</th><th>目录</th><th>风险等级</th><th>报告</th></tr></thead>
-              <tbody>
-                ${rankingRows.length ? rankingRows.slice(0, 10).map((item, i) => `
-                  <tr>
-                    <td style="font-weight:900; color:${i < 3 ? "var(--red)" : "var(--ink)"}">${String(i + 1).padStart(2, "0")}</td>
-                    <td>${escapeHtml(item.left)}</td>
-                    <td>${escapeHtml(item.right)}</td>
-                    <td class="score">${num(item.score)}</td>
-                    <td>${num(item.syscall)}</td>
-                    <td>${num(item.callgraph)}</td>
-                    <td>${num(item.directory)}</td>
-                    <td><span class="risk ${riskClass(item.risk)}">${riskLabel(item.risk)}</span></td>
-                    <td>${reportActions(item, "compare")}</td>
-                  </tr>
-                `).join("") : `<tr><td colspan="9"><div class="empty">服务器 compare 目录暂无实时排名数据。报告入库后会自动按综合分排序。</div></td></tr>`}
-              </tbody>
-            </table>
-          </div>
-          <div class="pagination"><span>共 ${filtered.length} 条</span><span class="spacer"></span><button class="page-btn">‹</button><button class="page-btn active">1</button><button class="page-btn">›</button><select class="select" style="width:120px"><option>10 条/页</option></select></div>
-        </article>
-        <aside>
-          <article class="card card-pad">
-            <h2 class="card-title">ⓘ 排名说明</h2>
-            <p style="line-height:1.8; color:var(--muted); font-weight:700">综合分由函数签名、系统调用、依赖、调用图、目录结构五类指标融合计算。</p>
-            <div class="explain-icons">
-              <div class="explain-icon"><strong>{}</strong>函数签名</div>
-              <div class="explain-icon"><strong>▹</strong>系统调用</div>
-              <div class="explain-icon"><strong>◇</strong>依赖</div>
-              <div class="explain-icon"><strong>┬</strong>调用图</div>
-              <div class="explain-icon"><strong>□</strong>目录结构</div>
-            </div>
-          </article>
-          <article class="card card-pad" style="margin-top:20px">
-            <h2 class="card-title">✓ 复核建议</h2>
-            <ul class="issue-list">
-              <li>高风险优先人工复核</li>
-              <li>中风险检查模块差异</li>
-              <li>低风险抽样验证引用</li>
-            </ul>
-          </article>
-        </aside>
-      </div>
-    </section>
-  `;
 }
 
 function renderReports() {
@@ -907,11 +793,6 @@ function wireEvents() {
       renderReports();
     }
 
-    const filter = event.target.closest("[data-rank-filter]");
-    if (filter) {
-      state.rankFilter = filter.dataset.rankFilter;
-      renderRanking();
-    }
   });
 
   document.addEventListener("input", (event) => {
@@ -1016,13 +897,13 @@ wireEvents();
 
 window.addEventListener("hashchange", () => {
   const page = location.hash.slice(1);
-  if (["home", "analysis", "compare", "ranking", "reports"].includes(page)) {
+  if (["home", "analysis", "compare", "reports"].includes(page)) {
     openPage(page);
   }
 });
 
 const initialPage = location.hash.slice(1);
-if (["home", "analysis", "compare", "ranking", "reports"].includes(initialPage)) {
+if (["home", "analysis", "compare", "reports"].includes(initialPage)) {
   state.page = initialPage;
 }
 
