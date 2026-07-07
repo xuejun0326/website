@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node scripts/build-static.js",
     "start": "node server.js",
-    "test": "node tests/analysis-pagination.test.js && node tests/compare-pagination.test.js && node tests/reports-pagination-filter.test.js && node tests/static-build.test.js"
+    "test": "node tests/analysis-pagination.test.js && node tests/compare-pagination.test.js && node tests/static-build.test.js"
   },
   "engines": {
     "node": ">=18"

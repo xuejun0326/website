@@ -17,23 +17,14 @@
         <button class="nav-link active" data-page="home">首页</button>
         <button class="nav-link" data-page="analysis">今年作品分析</button>
         <button class="nav-link" data-page="compare">历年作品比对</button>
-        <button class="nav-link" data-page="reports">报告索引</button>
       </nav>
-      <div class="top-actions">
-        <button class="btn btn-primary" data-upload="describe"><span class="icon">⇧</span>追加项目 MD</button>
-        <button class="btn btn-outline" data-upload="compare"><span class="icon">＋</span>追加比对 MD</button>
-      </div>
     </header>
 
     <main class="shell">
       <section class="page active" id="page-home"></section>
       <section class="page" id="page-analysis"></section>
       <section class="page" id="page-compare"></section>
-      <section class="page" id="page-reports"></section>
     </main>
-
-    <input id="describe-file" type="file" accept=".md,text/markdown,text/plain" hidden />
-    <input id="compare-file" type="file" accept=".md,text/markdown,text/plain" hidden />
 
     <div class="modal" id="preview-modal" aria-hidden="true">
       <div class="modal-backdrop" data-close-modal></div>

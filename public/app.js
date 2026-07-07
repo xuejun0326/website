@@ -5,10 +5,6 @@ const state = {
   selectedCompare: null,
   analysisPage: 1,
   comparePage: 1,
-  reportsPage: 1,
-  reportTypeFilter: "全部类型",
-  reportStatusFilter: "全部状态",
-  reportCitationFilter: "引用验证",
   yearFilter: "全部年份",
   schoolFilter: "全部学校",
   familyFilter: "全部家族",
@@ -215,7 +211,7 @@ async function loadReports() {
     if (!res.ok) throw new Error("读取报告失败");
     state.reports = await res.json();
   } catch (error) {
-    toast(`读取报告索引失败：${error.message}`);
+    toast(`读取报告数据失败：${error.message}`);
   }
   state.selectedDescribe = state.reports.describe[0] || null;
   state.selectedCompare = state.reports.compare[0] || null;
@@ -226,7 +222,6 @@ function render() {
   renderHome();
   renderAnalysis();
   renderCompare();
-  renderReports();
 }
 
 function renderHome() {
@@ -333,14 +328,12 @@ function renderAnalysis() {
         <select class="select" data-year-filter>${optionList(yearOptions(), state.yearFilter)}</select>
         <select class="select" data-school-filter>${optionList(schoolOptions(), state.schoolFilter)}</select>
         <select class="select" data-family-filter>${optionList(familyOptions(), state.familyFilter)}</select>
-        <button class="btn btn-primary" data-upload="describe"><span class="icon">⇧</span>报告更新说明</button>
       </div>
       <article class="card">
         <div class="card-head"><h2 class="card-title">作品列表</h2></div>
         ${analysisTable(pageRows, false)}
         ${pagination(rows.length, pageSize, state.analysisPage, "data-analysis-page")}
       </article>
-      ${uploadStrip("describe", "管理员维护入口：追加项目分析 Markdown 到服务器 describe 目录")}
     </section>
   `;
 }
@@ -361,7 +354,6 @@ function renderCompare() {
       <div class="compare-picker">
         <label class="select-card"><span>选择今年作品：</span><select class="select" data-compare-left-filter ${leftOptions.length <= 1 ? "disabled" : ""}>${optionList(leftOptions, state.compareLeftFilter)}</select></label>
         <label class="select-card"><span>选择历史作品：</span><select class="select" data-compare-right-filter ${rightOptions.length <= 1 ? "disabled" : ""}>${optionList(rightOptions, state.compareRightFilter)}</select></label>
-        <button class="btn btn-primary" data-upload="compare"><span class="icon">▤</span>报告更新说明</button>
       </div>
       <p style="color:var(--muted); font-weight:700">ⓘ 综合分由函数签名、系统调用、依赖、调用图、目录结构融合。</p>
       <div class="toolbar compact">
@@ -418,7 +410,6 @@ function renderCompare() {
           ` : `<h2 class="card-title">比对详情</h2><div class="empty">服务器 compare 目录暂无比对任务。报告入库后，这里会显示综合分、五类指标和主要差异点。</div>`}
         </article>
       </div>
-      ${uploadStrip("compare", "管理员维护入口：追加比对 Markdown 到服务器 compare 目录")}
     </section>
   `;
 }
@@ -470,158 +461,14 @@ function progress(label, value) {
   return `<div class="progress-row"><strong>${label}</strong><div class="bar"><span style="width:${v * 100}%"></span></div><span>${num(v)}</span></div>`;
 }
 
-function renderReports() {
-  const reports = [...state.reports.describe, ...state.reports.compare];
-  const filteredReports = filterReports(reports);
-  const pageSize = 10;
-  const totalPages = Math.max(1, Math.ceil(filteredReports.length / pageSize));
-  state.reportsPage = Math.min(Math.max(1, state.reportsPage || 1), totalPages);
-  const pageStart = (state.reportsPage - 1) * pageSize;
-  const pageReports = filteredReports.slice(pageStart, pageStart + pageSize);
-  $("#page-reports").innerHTML = `
-    <section>
-      <h1 class="page-title">报告索引</h1>
-      <p class="subtitle">统一管理项目分析 Markdown 与比对报告 Markdown，发布给评审与组委会查看。</p>
-      <div class="grid-upload">
-        ${uploadCard("describe", "项目分析报告更新", "Cloudflare Pages 部署时，报告随 GitHub 仓库一起发布。", "将新的项目分析 Markdown 提交到 describe 目录后重新部署", "查看更新方式")}
-        ${uploadCard("compare", "比对报告更新", "Cloudflare Pages 部署时，比对报告随 GitHub 仓库一起发布。", "将新的比对报告 Markdown 提交到 compare 目录后重新部署", "查看更新方式")}
-        <aside class="card stat-list">
-          ${statLine("▤", "项目分析", allDescribe().length)}
-          ${statLine("↔", "比对报告", allCompare().length)}
-          ${statLine("□", "草稿", reports.filter((x) => x.status === "分析中").length)}
-          ${statLine("➤", "待发布", reports.filter((x) => x.status !== "已发布").length)}
-        </aside>
-      </div>
-      <article class="card" style="margin-top:28px">
-        <div class="card-head"><h2 class="card-title">报告库</h2></div>
-        <div class="card-pad" style="padding-top:0">
-          <div class="toolbar compact">
-            <input class="input" data-search placeholder="搜索报告 / 作品 / 类型 / 学校 / 年份" value="${escapeHtml(state.query)}" />
-            <select class="select" data-year-filter>${optionList(yearOptions(), state.yearFilter)}</select>
-            <select class="select" data-school-filter>${optionList(schoolOptions(), state.schoolFilter)}</select>
-            <select class="select" data-report-type-filter>
-              ${selectOption("全部类型", state.reportTypeFilter)}
-              ${selectOption("项目分析", state.reportTypeFilter)}
-              ${selectOption("比对报告", state.reportTypeFilter)}
-            </select>
-            <select class="select" data-report-status-filter>
-              ${selectOption("全部状态", state.reportStatusFilter)}
-              ${selectOption("已发布", state.reportStatusFilter)}
-              ${selectOption("分析中", state.reportStatusFilter)}
-              ${selectOption("待复核", state.reportStatusFilter)}
-            </select>
-            <select class="select" data-report-citation-filter>
-              ${selectOption("引用验证", state.reportCitationFilter)}
-              ${selectOption("已验证", state.reportCitationFilter)}
-              ${selectOption("待验证", state.reportCitationFilter)}
-            </select>
-          </div>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>报告名称</th><th>类型</th><th>关联作品</th><th>年份</th><th>学校</th><th>引用验证</th><th>状态</th><th>更新时间</th><th>操作</th></tr></thead>
-            <tbody>
-              ${pageReports.length ? pageReports.map((item) => `
-                <tr data-report-row="${item.id}">
-                  <td>${item.type === "compare" ? "↔" : "▤"} ${escapeHtml(item.title)}</td>
-                  <td>${item.type === "compare" ? "比对报告" : "项目分析"}</td>
-                  <td>${item.type === "compare" ? `${escapeHtml(item.left)} ↔ ${escapeHtml(item.right)}` : escapeHtml(item.project || item.title)}</td>
-                  <td>${escapeHtml(yearValue(item))}</td>
-                  <td>${escapeHtml(schoolValue(item))}</td>
-                  <td class="score">${pct(item.citationRate)}</td>
-                  <td><span class="status ${statusClass(item.status)}">${escapeHtml(item.status)}</span></td>
-                  <td>${fmtDate(item.updatedAt)}</td>
-                  <td>${reportActions(item, item.type)}</td>
-                </tr>
-              `).join("") : `<tr><td colspan="9"><div class="empty">服务器报告库为空。将项目分析 MD 放入 describe、比对报告 MD 放入 compare 后，这里会显示真实报告。</div></td></tr>`}
-            </tbody>
-          </table>
-        </div>
-        ${pagination(filteredReports.length, pageSize, state.reportsPage, "data-reports-page")}
-      </article>
-    </section>
-  `;
-}
-
 function selectOption(value, selected) {
   return `<option value="${escapeHtml(value)}" ${value === selected ? "selected" : ""}>${escapeHtml(value)}</option>`;
-}
-
-function filterReports(reports) {
-  let rows = filterByYearSchool(filterByQuery(reports, ["title", "project", "left", "right", "file", "type", "year", "school", "leftYear", "rightYear", "leftSchool", "rightSchool"]));
-  if (state.reportTypeFilter === "项目分析") rows = rows.filter((item) => item.type === "describe");
-  if (state.reportTypeFilter === "比对报告") rows = rows.filter((item) => item.type === "compare");
-  if (state.reportStatusFilter !== "全部状态") rows = rows.filter((item) => item.status === state.reportStatusFilter);
-  if (state.reportCitationFilter === "已验证") rows = rows.filter((item) => item.citationRate !== null && item.citationRate !== undefined);
-  if (state.reportCitationFilter === "待验证") rows = rows.filter((item) => item.citationRate === null || item.citationRate === undefined);
-  return rows;
-}
-
-function uploadCard(type, title, desc, prompt, btn) {
-  return `
-    <article class="card card-pad">
-      <h2 class="card-title">${title}</h2>
-      <p style="color:var(--muted); font-weight:700">${desc}</p>
-      <div class="dropzone" data-drop="${type}">
-        <div>
-          <div class="upload-cloud">☁</div>
-          <h4>${prompt}</h4>
-          <button class="btn btn-outline" data-upload="${type}">${btn}</button>
-          <p>支持 .md，单文件不超过 20MB</p>
-        </div>
-      </div>
-    </article>
-  `;
-}
-
-function statLine(icon, label, value) {
-  return `<div class="stat-line"><span class="stat-icon">${icon}</span><span>${label}</span><strong>${value}</strong></div>`;
-}
-
-function uploadStrip(type, text) {
-  return `
-    <div class="upload-strip" data-drop="${type}">
-      <div class="upload-cloud">☁</div>
-      <div><h4>${text}</h4><p>支持 .md 文件，单个文件不超过 20MB</p></div>
-      <button class="btn btn-outline" data-upload="${type}">查看更新方式</button>
-    </div>
-  `;
 }
 
 function filterByQuery(items, keys) {
   const q = state.query.trim().toLowerCase();
   if (!q) return items;
   return items.filter((item) => keys.some((key) => String(item[key] || "").toLowerCase().includes(q)));
-}
-
-async function uploadFile(type, file) {
-  if (state.staticMode) {
-    toast("静态部署模式下不能在线写入文件；请把 Markdown 提交到 GitHub 后由 Cloudflare 重新部署。");
-    return;
-  }
-  if (!file) return;
-  if (!file.name.toLowerCase().endsWith(".md")) {
-    toast("请选择 Markdown (.md) 文件");
-    return;
-  }
-  if (file.size > 20 * 1024 * 1024) {
-    toast("单个 Markdown 文件不能超过 20MB");
-    return;
-  }
-  const content = await file.text();
-  const res = await fetch("/api/upload", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ type, fileName: file.name, content })
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: "上传失败" }));
-    toast(err.error || "上传失败");
-    return;
-  }
-  toast(`${file.name} 已保存到 ${type === "compare" ? "compare" : "describe"} 目录`);
-  await loadReports();
-  openPage(type === "compare" ? "reports" : "analysis");
 }
 
 async function previewReport(type, file) {
@@ -721,16 +568,6 @@ function wireEvents() {
     const jump = event.target.closest("[data-page-jump]");
     if (jump) openPage(jump.dataset.pageJump);
 
-    const upload = event.target.closest("[data-upload]");
-    if (upload) {
-      if (state.staticMode) {
-        toast("Cloudflare 静态站点不能在线上传；更新 Markdown 后推送 GitHub，Cloudflare 会自动重新部署。");
-        return;
-      }
-      const type = upload.dataset.upload;
-      $(`#${type}-file`).click();
-    }
-
     const preview = event.target.closest("[data-preview]");
     if (preview) {
       const [type, ...name] = preview.dataset.preview.split(":");
@@ -781,18 +618,6 @@ function wireEvents() {
       renderCompare();
     }
 
-    const reportsPage = event.target.closest("[data-reports-page]");
-    if (reportsPage) {
-      const reports = [...state.reports.describe, ...state.reports.compare];
-      const totalPages = Math.max(1, Math.ceil(filterReports(reports).length / 10));
-      const target = reportsPage.dataset.reportsPage;
-      if (target === "prev") state.reportsPage -= 1;
-      else if (target === "next") state.reportsPage += 1;
-      else state.reportsPage = Number(target);
-      state.reportsPage = Math.min(Math.max(1, state.reportsPage), totalPages);
-      renderReports();
-    }
-
   });
 
   document.addEventListener("input", (event) => {
@@ -800,7 +625,6 @@ function wireEvents() {
       state.query = event.target.value;
       state.analysisPage = 1;
       state.comparePage = 1;
-      state.reportsPage = 1;
       render();
     }
   });
@@ -810,14 +634,12 @@ function wireEvents() {
       state.yearFilter = event.target.value;
       state.analysisPage = 1;
       state.comparePage = 1;
-      state.reportsPage = 1;
       render();
     }
     if (event.target.matches("[data-school-filter]")) {
       state.schoolFilter = event.target.value;
       state.analysisPage = 1;
       state.comparePage = 1;
-      state.reportsPage = 1;
       render();
     }
     if (event.target.matches("[data-family-filter]")) {
@@ -838,51 +660,6 @@ function wireEvents() {
       state.comparePage = 1;
       renderCompare();
     }
-    if (event.target.matches("[data-report-type-filter]")) {
-      state.reportTypeFilter = event.target.value;
-      state.reportsPage = 1;
-      renderReports();
-    }
-    if (event.target.matches("[data-report-status-filter]")) {
-      state.reportStatusFilter = event.target.value;
-      state.reportsPage = 1;
-      renderReports();
-    }
-    if (event.target.matches("[data-report-citation-filter]")) {
-      state.reportCitationFilter = event.target.value;
-      state.reportsPage = 1;
-      renderReports();
-    }
-  });
-
-  $("#describe-file").addEventListener("change", (event) => {
-    uploadFile("describe", event.target.files[0]);
-    event.target.value = "";
-  });
-
-  $("#compare-file").addEventListener("change", (event) => {
-    uploadFile("compare", event.target.files[0]);
-    event.target.value = "";
-  });
-
-  document.addEventListener("dragover", (event) => {
-    const dz = event.target.closest("[data-drop]");
-    if (!dz) return;
-    event.preventDefault();
-    dz.classList.add("dragging");
-  });
-
-  document.addEventListener("dragleave", (event) => {
-    const dz = event.target.closest("[data-drop]");
-    if (dz) dz.classList.remove("dragging");
-  });
-
-  document.addEventListener("drop", (event) => {
-    const dz = event.target.closest("[data-drop]");
-    if (!dz) return;
-    event.preventDefault();
-    dz.classList.remove("dragging");
-    uploadFile(dz.dataset.drop, event.dataTransfer.files[0]);
   });
 
   document.addEventListener("keydown", (event) => {
@@ -897,13 +674,13 @@ wireEvents();
 
 window.addEventListener("hashchange", () => {
   const page = location.hash.slice(1);
-  if (["home", "analysis", "compare", "reports"].includes(page)) {
+  if (["home", "analysis", "compare"].includes(page)) {
     openPage(page);
   }
 });
 
 const initialPage = location.hash.slice(1);
-if (["home", "analysis", "compare", "reports"].includes(initialPage)) {
+if (["home", "analysis", "compare"].includes(initialPage)) {
   state.page = initialPage;
 }
 
