@@ -1,6 +1,6 @@
 # OSKAG 作品分析站点
 
-面向内核赛道作品分析的报告发布网站。站点采用服务器端 Markdown 报告库模式，启动后自动索引 `describe/` 目录中的报告，评审方打开网址即可直接筛选、预览和下载。
+面向内核赛道作品分析的报告发布网站。站点以 `describe/` 中的作品描述为作品索引，并为每份作品展示摘要、开发过程分析、作品描述和对比报告四类文件。
 
 ## 本地运行
 
@@ -17,11 +17,27 @@ http://localhost:4173
 ## 目录说明
 
 ```text
-public/      作品分析页面、样式和交互逻辑
-server.js    Node.js 报告索引与静态资源服务
-describe/    作品分析 Markdown
-tests/       前端行为回归测试
+public/          作品分析页面、样式和交互逻辑
+summary/         摘要 PDF
+development/     开发过程分析 Markdown
+describe/        作品描述 Markdown，同时作为作品索引
+compare/         对比报告 Markdown
+server.js        Node.js 报告索引与文件服务
+tests/           行为回归测试
 ```
+
+## 文件命名
+
+同一份作品的四个文件使用相同的作品 ID。例如作品描述文件为 `demo-describe.md` 时，其余文件名为：
+
+```text
+summary/demo-summary.pdf
+development/demo-development.md
+describe/demo-describe.md
+compare/demo-compare.md
+```
+
+只要 `describe/` 中存在作品描述，页面就会显示该作品。其他文件尚未放入对应目录时，页面显示“待补充”。
 
 ## 测试
 
@@ -42,11 +58,14 @@ Root directory: /
 构建脚本会生成静态发布目录 `dist/`，其中包含：
 
 ```text
-api/reports.json   静态报告索引
-describe/*.md      项目分析 Markdown
+api/reports.json      静态报告索引
+summary/*.pdf         摘要 PDF
+development/*.md      开发过程分析 Markdown
+describe/*.md         作品描述 Markdown
+compare/*.md          对比报告 Markdown
 ```
 
-Cloudflare 静态部署模式下，线上页面不能直接在线写入 Markdown。新增或修改报告时，把 `.md` 文件提交到 GitHub 的 `describe/` 目录，Cloudflare 会自动重新部署。
+Cloudflare 静态部署模式下，线上页面不能直接写入报告文件。新增或修改报告时，把文件放入对应目录并提交到 GitHub，Cloudflare 会自动重新部署。
 
 仓库也提供了 `wrangler.toml`：
 

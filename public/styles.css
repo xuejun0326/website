@@ -113,6 +113,17 @@ button {
   font-size: 13px;
 }
 
+.file-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.file-missing {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .shell {
   max-width: 1540px;
   margin: 0 auto;

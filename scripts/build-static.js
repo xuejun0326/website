@@ -3,7 +3,16 @@ const path = require("path");
 
 const ROOT = path.join(__dirname, "..");
 const PUBLIC = path.join(ROOT, "public");
+const SUMMARY_DIR = path.join(ROOT, "summary");
+const DEVELOPMENT_DIR = path.join(ROOT, "development");
 const DESCRIBE_DIR = path.join(ROOT, "describe");
+const COMPARE_DIR = path.join(ROOT, "compare");
+const REPORT_DIRS = {
+  summary: SUMMARY_DIR,
+  development: DEVELOPMENT_DIR,
+  describe: DESCRIBE_DIR,
+  compare: COMPARE_DIR
+};
 const DIST = path.join(ROOT, "dist");
 
 function resetDir(dir) {
@@ -108,6 +117,22 @@ function citationRate(text) {
   return Math.max(0, Math.min(100, ((refs.length - bad) / refs.length) * 100));
 }
 
+function reportFilesFor(file) {
+  const base = file.replace(/-describe\.md$/i, "").replace(/\.md$/i, "");
+  const entry = (kind, format, name) => ({
+    kind,
+    format,
+    file: name,
+    available: fs.existsSync(path.join(REPORT_DIRS[kind], name))
+  });
+  return {
+    summary: entry("summary", "pdf", `${base}-summary.pdf`),
+    development: entry("development", "md", `${base}-development.md`),
+    description: entry("describe", "md", file),
+    comparison: entry("compare", "md", `${base}-compare.md`)
+  };
+}
+
 function analyzeMarkdown(file, markdown, stat) {
   const title = extractTitle(markdown, file);
   const rate = citationRate(markdown);
@@ -127,6 +152,7 @@ function analyzeMarkdown(file, markdown, stat) {
     updatedAt: stat.mtime.toISOString(),
     size: stat.size,
     refs: (markdown.match(/[\w./\\-]+\.(?:rs|c|cc|cpp|h|hpp|py|toml|S|asm):\d+(?:-\d+)?/g) || []).length,
+    files: reportFilesFor(file),
     project: title.replace(/\s*describe\s*$/i, ""),
     modules: /模块覆盖[^\d]*(\d+)\s*\/\s*(\d+)/.test(markdown)
       ? markdown.match(/模块覆盖[^\d]*(\d+)\s*\/\s*(\d+)/).slice(1, 3).join("/")
@@ -147,7 +173,9 @@ function readGroup(dir) {
 
 resetDir(DIST);
 copyDir(PUBLIC, DIST);
-copyDir(DESCRIBE_DIR, path.join(DIST, "describe"));
+for (const [kind, dir] of Object.entries(REPORT_DIRS)) {
+  copyDir(dir, path.join(DIST, kind));
+}
 
 const data = {
   staticMode: true,

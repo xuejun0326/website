@@ -137,7 +137,10 @@ function analysisTable(rows) {
             <th>学校</th>
             <th>内核家族</th>
             <th>状态</th>
-            <th>describe 报告</th>
+            <th>摘要 PDF</th>
+            <th>开发过程分析 MD</th>
+            <th>作品描述 MD</th>
+            <th>对比报告 MD</th>
             <th>引用合法率</th>
             <th>更新时间</th>
           </tr>
@@ -150,32 +153,67 @@ function analysisTable(rows) {
               <td>${escapeHtml(schoolValue(item))}</td>
               <td>${escapeHtml(item.family || "待识别")}</td>
               <td><span class="status ${statusClass(item.status)}">${escapeHtml(item.status)}</span></td>
-              <td>${reportActions(item)}</td>
+              <td>${fileActions(reportFile(item, "summary"))}</td>
+              <td>${fileActions(reportFile(item, "development"))}</td>
+              <td>${fileActions(reportFile(item, "description"))}</td>
+              <td>${fileActions(reportFile(item, "comparison"))}</td>
               <td class="score">${pct(item.citationRate)}</td>
               <td>${fmtDate(item.updatedAt)}</td>
             </tr>
-          `).join("") : `<tr><td colspan="8"><div class="empty">服务器 describe 目录暂无项目分析 Markdown。将报告放入服务器目录后页面会自动读取。</div></td></tr>`}
+          `).join("") : `<tr><td colspan="11"><div class="empty">服务器 describe 目录暂无项目分析 Markdown。将报告放入服务器目录后页面会自动读取。</div></td></tr>`}
         </tbody>
       </table>
     </div>
   `;
 }
 
-function reportActions(item) {
+function reportFile(item, key) {
+  if (item.files?.[key]) return item.files[key];
+  const base = String(item.file || "report.md").replace(/-describe\.md$/i, "").replace(/\.md$/i, "");
+  const defaults = {
+    summary: { kind: "summary", format: "pdf", file: `${base}-summary.pdf`, available: false },
+    development: { kind: "development", format: "md", file: `${base}-development.md`, available: false },
+    description: { kind: "describe", format: "md", file: item.file, available: Boolean(item.file) },
+    comparison: { kind: "compare", format: "md", file: `${base}-compare.md`, available: false }
+  };
+  return defaults[key];
+}
+
+function fileActions(report) {
+  if (!report?.available) {
+    return `<span class="file-missing">待补充</span>`;
+  }
+  const url = downloadUrl(report.kind, report.file);
+  if (report.format === "pdf") {
+    return `
+      <span class="file-actions">
+        <a class="btn btn-ghost btn-sm" href="${reportUrl(report.kind, report.file)}" target="_blank" rel="noopener">查看</a>
+        <a class="btn btn-ghost btn-sm" href="${url}" download>下载</a>
+      </span>
+    `;
+  }
   return `
-    <button class="btn btn-ghost btn-sm" data-preview="${escapeHtml(item.file)}">预览</button>
-    <a class="btn btn-ghost btn-sm" href="${downloadUrl(item.file)}" download>下载</a>
+    <span class="file-actions">
+      <button class="btn btn-ghost btn-sm" data-preview="${report.kind}:${escapeHtml(report.file)}">预览</button>
+      <a class="btn btn-ghost btn-sm" href="${url}" download>下载</a>
+    </span>
   `;
 }
 
-function staticReportUrl(file) {
-  return assetPath(`describe/${encodeURIComponent(file)}`);
+function staticReportUrl(kind, file) {
+  return assetPath(`${kind}/${encodeURIComponent(file)}`);
 }
 
-function downloadUrl(file) {
+function reportUrl(kind, file) {
   return state.staticMode
-    ? staticReportUrl(file)
-    : `/download/${encodeURIComponent(file)}`;
+    ? staticReportUrl(kind, file)
+    : `/files/${encodeURIComponent(kind)}/${encodeURIComponent(file)}`;
+}
+
+function downloadUrl(kind, file) {
+  return state.staticMode
+    ? staticReportUrl(kind, file)
+    : `/download/${encodeURIComponent(kind)}/${encodeURIComponent(file)}`;
 }
 
 function renderAnalysis() {
@@ -235,10 +273,10 @@ function filterByQuery(items, keys) {
   return items.filter((item) => keys.some((key) => String(item[key] || "").toLowerCase().includes(q)));
 }
 
-async function previewReport(file) {
-  let res = await fetch(`/api/report?name=${encodeURIComponent(file)}`);
+async function previewReport(kind, file) {
+  let res = await fetch(`/api/report?kind=${encodeURIComponent(kind)}&name=${encodeURIComponent(file)}`);
   if (!res.ok) {
-    res = await fetch(staticReportUrl(file));
+    res = await fetch(staticReportUrl(kind, file));
   }
   if (!res.ok) {
     toast("无法读取报告");
@@ -328,7 +366,8 @@ function wireEvents() {
   document.addEventListener("click", (event) => {
     const preview = event.target.closest("[data-preview]");
     if (preview) {
-      previewReport(preview.dataset.preview);
+      const [kind, ...fileParts] = preview.dataset.preview.split(":");
+      previewReport(kind, fileParts.join(":"));
     }
 
     const close = event.target.closest("[data-close-modal]");

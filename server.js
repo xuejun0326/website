@@ -4,11 +4,21 @@ const path = require("path");
 const { URL } = require("url");
 
 const ROOT = __dirname;
+const REPORT_ROOT = process.env.REPORT_ROOT ? path.resolve(process.env.REPORT_ROOT) : ROOT;
 const PUBLIC = path.join(ROOT, "public");
-const DESCRIBE_DIR = path.join(ROOT, "describe");
+const SUMMARY_DIR = path.join(REPORT_ROOT, "summary");
+const DEVELOPMENT_DIR = path.join(REPORT_ROOT, "development");
+const DESCRIBE_DIR = path.join(REPORT_ROOT, "describe");
+const COMPARE_DIR = path.join(REPORT_ROOT, "compare");
+const REPORT_DIRS = {
+  summary: SUMMARY_DIR,
+  development: DEVELOPMENT_DIR,
+  describe: DESCRIBE_DIR,
+  compare: COMPARE_DIR
+};
 const PORT = Number(process.env.PORT || 4173);
 
-for (const dir of [DESCRIBE_DIR, PUBLIC]) {
+for (const dir of [...Object.values(REPORT_DIRS), PUBLIC]) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
@@ -34,15 +44,19 @@ function send(res, status, body, type = "application/json; charset=utf-8") {
   res.end(data);
 }
 
-function safeFileName(name) {
-  const base = path.basename(String(name || "report.md")).replace(/[<>:"/\\|?*\x00-\x1f]/g, "_");
-  const withExt = base.toLowerCase().endsWith(".md") ? base : `${base}.md`;
-  return withExt || `report-${Date.now()}.md`;
+function safeFileName(name, kind = "describe") {
+  const extension = kind === "summary" ? ".pdf" : ".md";
+  const fallback = `report${extension}`;
+  const base = path.basename(String(name || fallback)).replace(/[<>:"/\\|?*\x00-\x1f]/g, "_");
+  const withExt = base.toLowerCase().endsWith(extension) ? base : `${base}${extension}`;
+  return withExt || `report-${Date.now()}${extension}`;
 }
 
-function fileFor(name) {
-  const resolved = path.resolve(DESCRIBE_DIR, safeFileName(name));
-  if (!resolved.startsWith(path.resolve(DESCRIBE_DIR))) {
+function fileFor(kind, name) {
+  const dir = REPORT_DIRS[kind];
+  if (!dir) throw new Error("invalid report kind");
+  const resolved = path.resolve(dir, safeFileName(name, kind));
+  if (!resolved.startsWith(path.resolve(dir))) {
     throw new Error("invalid path");
   }
   return resolved;
@@ -125,11 +139,47 @@ function inferRisk(text) {
   return "正常";
 }
 
+function sendReportFile(res, kind, name, download = false) {
+  if (!REPORT_DIRS[kind]) {
+    send(res, 400, { error: "invalid report kind" });
+    return;
+  }
+  const safeName = safeFileName(name, kind);
+  const full = fileFor(kind, safeName);
+  if (!fs.existsSync(full)) {
+    send(res, 404, "Not found", "text/plain; charset=utf-8");
+    return;
+  }
+  const contentType = kind === "summary" ? "application/pdf" : "text/markdown; charset=utf-8";
+  const headers = { "Content-Type": contentType };
+  if (download) {
+    headers["Content-Disposition"] = `attachment; filename*=UTF-8''${encodeURIComponent(safeName)}`;
+  }
+  res.writeHead(200, headers);
+  fs.createReadStream(full).pipe(res);
+}
+
 function citationRate(text) {
   const refs = text.match(/[\w./\\-]+\.(?:rs|c|cc|cpp|h|hpp|py|toml|S|asm):\d+(?:-\d+)?/g) || [];
   if (!refs.length) return null;
   const bad = refs.filter((r) => /:0(?:-|$)/.test(r)).length;
   return Math.max(0, Math.min(100, ((refs.length - bad) / refs.length) * 100));
+}
+
+function reportFilesFor(file) {
+  const base = file.replace(/-describe\.md$/i, "").replace(/\.md$/i, "");
+  const entry = (kind, format, name) => ({
+    kind,
+    format,
+    file: name,
+    available: fs.existsSync(path.join(REPORT_DIRS[kind], name))
+  });
+  return {
+    summary: entry("summary", "pdf", `${base}-summary.pdf`),
+    development: entry("development", "md", `${base}-development.md`),
+    description: entry("describe", "md", file),
+    comparison: entry("compare", "md", `${base}-compare.md`)
+  };
 }
 
 function analyzeMarkdown(file, markdown, stat) {
@@ -151,6 +201,7 @@ function analyzeMarkdown(file, markdown, stat) {
     updatedAt: stat.mtime.toISOString(),
     size: stat.size,
     refs: (markdown.match(/[\w./\\-]+\.(?:rs|c|cc|cpp|h|hpp|py|toml|S|asm):\d+(?:-\d+)?/g) || []).length,
+    files: reportFilesFor(file),
     project: title.replace(/\s*describe\s*$/i, ""),
     modules: /模块覆盖[^\d]*(\d+)\s*\/\s*(\d+)/.test(markdown)
       ? markdown.match(/模块覆盖[^\d]*(\d+)\s*\/\s*(\d+)/).slice(1, 3).join("/")
@@ -217,35 +268,34 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && pathname === "/api/report") {
-      const name = safeFileName(url.searchParams.get("name"));
-      const full = fileFor(name);
+      const kind = url.searchParams.get("kind") || "describe";
+      if (!REPORT_DIRS[kind]) {
+        send(res, 400, { error: "invalid report kind" });
+        return;
+      }
+      if (kind === "summary") {
+        send(res, 400, { error: "PDF reports use the file URL directly" });
+        return;
+      }
+      const name = safeFileName(url.searchParams.get("name"), kind);
+      const full = fileFor(kind, name);
       if (!fs.existsSync(full)) {
         send(res, 404, { error: "report not found" });
         return;
       }
-      send(res, 200, { name, content: fs.readFileSync(full, "utf8") });
+      send(res, 200, { kind, name, content: fs.readFileSync(full, "utf8") });
       return;
     }
 
-    if (req.method === "GET" && pathname.startsWith("/download/")) {
-      const [, , ...nameParts] = pathname.split("/");
-      const name = safeFileName(nameParts.join("/"));
-      const full = fileFor(name);
-      if (!fs.existsSync(full)) {
-        send(res, 404, "Not found", "text/plain; charset=utf-8");
-        return;
-      }
-      res.writeHead(200, {
-        "Content-Type": "text/markdown; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${encodeURIComponent(name)}"`
-      });
-      fs.createReadStream(full).pipe(res);
+    if (req.method === "GET" && (pathname.startsWith("/files/") || pathname.startsWith("/download/"))) {
+      const [, action, kind, ...nameParts] = pathname.split("/");
+      sendReportFile(res, kind, nameParts.join("/"), action === "download");
       return;
     }
 
     if (req.method === "POST" && pathname === "/api/upload") {
       const body = JSON.parse(await readBody(req));
-      const fileName = safeFileName(body.fileName || `describe-${Date.now()}.md`);
+      const fileName = safeFileName(body.fileName || `describe-${Date.now()}.md`, "describe");
       const content = String(body.content || "");
       if (!content.trim()) {
         send(res, 400, { error: "empty markdown" });
@@ -255,7 +305,7 @@ const server = http.createServer(async (req, res) => {
         send(res, 413, { error: "file too large" });
         return;
       }
-      const full = fileFor(fileName);
+      const full = fileFor("describe", fileName);
       fs.writeFileSync(full, content, "utf8");
       const stat = fs.statSync(full);
       send(res, 200, { ok: true, report: analyzeMarkdown(fileName, content, stat) });

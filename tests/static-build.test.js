@@ -21,8 +21,17 @@ assert.ok(fs.existsSync(path.join(dist, "styles.css")), "dist should contain sty
 assert.strictEqual(reports.staticMode, true, "static index should identify static deployment mode");
 assert.strictEqual(reports.describe.length, describeCount, "static build should index all describe reports");
 assert.strictEqual(Object.hasOwn(reports, "compare"), false, "static index should not contain compare reports");
-assert.strictEqual(fs.existsSync(path.join(dist, "compare")), false, "dist should not contain a compare directory");
+assert.ok(fs.existsSync(path.join(dist, "summary")), "dist should contain summary files");
+assert.ok(fs.existsSync(path.join(dist, "development")), "dist should contain development files");
+assert.ok(fs.existsSync(path.join(dist, "compare")), "dist should contain per-project comparison files");
 
 for (const item of reports.describe) {
   assert.ok(fs.existsSync(path.join(dist, "describe", item.file)), `missing describe asset: ${item.file}`);
+  const base = item.file.replace(/-describe\.md$/i, "").replace(/\.md$/i, "");
+  assert.deepStrictEqual(Object.keys(item.files), ["summary", "development", "description", "comparison"]);
+  assert.strictEqual(item.files.summary.file, `${base}-summary.pdf`);
+  assert.strictEqual(item.files.development.file, `${base}-development.md`);
+  assert.strictEqual(item.files.description.file, item.file);
+  assert.strictEqual(item.files.description.available, true);
+  assert.strictEqual(item.files.comparison.file, `${base}-compare.md`);
 }

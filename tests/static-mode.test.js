@@ -39,7 +39,7 @@ vm.runInContext(`
 ${appWithoutBootstrap}
 globalThis.loadPromise = loadReports().then(() => {
   globalThis.detectedStaticMode = state.staticMode;
-  globalThis.reportDownloadUrl = downloadUrl("report.md");
+  globalThis.reportDownloadUrl = downloadUrl("describe", "report.md");
 });
 `, context);
 
