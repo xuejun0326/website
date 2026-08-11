@@ -266,11 +266,6 @@ tbody tr:hover {
   box-shadow: 0 0 0 3px rgba(0, 127, 130, 0.12);
 }
 
-.score {
-  font-weight: 900;
-  color: var(--teal);
-}
-
 .pagination {
   display: flex;
   align-items: center;

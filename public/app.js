@@ -13,17 +13,6 @@ function $(selector, root = document) {
   return root.querySelector(selector);
 }
 
-function fmtDate(value) {
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "待更新";
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function pct(value) {
-  return value === null || value === undefined ? "待验证" : `${Number(value).toFixed(1)}%`;
-}
-
 function fieldValue(item, key) {
   return String(item?.[key] || "待补充");
 }
@@ -141,8 +130,6 @@ function analysisTable(rows) {
             <th>开发过程分析 MD</th>
             <th>作品描述 MD</th>
             <th>对比报告 MD</th>
-            <th>引用合法率</th>
-            <th>更新时间</th>
           </tr>
         </thead>
         <tbody>
@@ -157,10 +144,8 @@ function analysisTable(rows) {
               <td>${fileActions(reportFile(item, "development"))}</td>
               <td>${fileActions(reportFile(item, "description"))}</td>
               <td>${fileActions(reportFile(item, "comparison"))}</td>
-              <td class="score">${pct(item.citationRate)}</td>
-              <td>${fmtDate(item.updatedAt)}</td>
             </tr>
-          `).join("") : `<tr><td colspan="11"><div class="empty">服务器 describe 目录暂无项目分析 Markdown。将报告放入服务器目录后页面会自动读取。</div></td></tr>`}
+          `).join("") : `<tr><td colspan="9"><div class="empty">服务器 describe 目录暂无项目分析 Markdown。将报告放入服务器目录后页面会自动读取。</div></td></tr>`}
         </tbody>
       </table>
     </div>
@@ -226,7 +211,7 @@ function renderAnalysis() {
   $("#page-analysis").innerHTML = `
     <section>
       <h1 class="page-title">作品分析</h1>
-      <p class="subtitle">浏览参赛作品的分析报告、内核家族画像与引用验证结果。</p>
+      <p class="subtitle">浏览参赛作品的摘要、开发过程分析、作品描述与对比报告。</p>
       <div class="toolbar">
         <input class="input" data-search placeholder="搜索作品 / 内核家族 / 学校 / 年份" value="${escapeHtml(state.query)}" />
         <select class="select" data-year-filter>${optionList(yearOptions(), state.yearFilter)}</select>
