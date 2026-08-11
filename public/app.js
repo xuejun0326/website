@@ -76,12 +76,6 @@ function filterAnalysisRows() {
   return filterByYearSchool(filterByQuery(allDescribe(), ["project", "title", "family", "year", "school"])).filter(matchesFamily);
 }
 
-function statusClass(status) {
-  if (status === "已发布") return "green";
-  if (status === "分析中") return "blue";
-  return "orange";
-}
-
 function escapeHtml(text) {
   return String(text ?? "")
     .replace(/&/g, "&amp;")
@@ -125,7 +119,6 @@ function analysisTable(rows) {
             <th>年份</th>
             <th>学校</th>
             <th>内核家族</th>
-            <th>状态</th>
             <th>摘要 PDF</th>
             <th>开发过程分析 MD</th>
             <th>作品描述 MD</th>
@@ -139,13 +132,12 @@ function analysisTable(rows) {
               <td>${escapeHtml(yearValue(item))}</td>
               <td>${escapeHtml(schoolValue(item))}</td>
               <td>${escapeHtml(item.family || "待识别")}</td>
-              <td><span class="status ${statusClass(item.status)}">${escapeHtml(item.status)}</span></td>
               <td>${fileActions(reportFile(item, "summary"))}</td>
               <td>${fileActions(reportFile(item, "development"))}</td>
               <td>${fileActions(reportFile(item, "description"))}</td>
               <td>${fileActions(reportFile(item, "comparison"))}</td>
             </tr>
-          `).join("") : `<tr><td colspan="9"><div class="empty">服务器 describe 目录暂无项目分析 Markdown。将报告放入服务器目录后页面会自动读取。</div></td></tr>`}
+          `).join("") : `<tr><td colspan="8"><div class="empty">服务器 describe 目录暂无项目分析 Markdown。将报告放入服务器目录后页面会自动读取。</div></td></tr>`}
         </tbody>
       </table>
     </div>

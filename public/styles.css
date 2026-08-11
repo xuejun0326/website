@@ -207,35 +207,6 @@ tbody tr:hover {
   background: #f5fbfb;
 }
 
-.status {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 28px;
-  padding: 0 10px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 900;
-}
-
-.green {
-  color: var(--green);
-  background: var(--green-soft);
-  border: 1px solid #b9ebd7;
-}
-
-.blue {
-  color: var(--blue);
-  background: var(--blue-soft);
-  border: 1px solid #c9defc;
-}
-
-.orange {
-  color: var(--orange);
-  background: var(--orange-soft);
-  border: 1px solid #ffd4a8;
-}
-
 .toolbar {
   display: grid;
   grid-template-columns: minmax(280px, 1fr) 220px 220px 220px auto;

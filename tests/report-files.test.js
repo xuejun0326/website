@@ -57,6 +57,7 @@ assert.match(context.reportHtml, /<th>摘要 PDF<\/th>/);
 assert.match(context.reportHtml, /<th>开发过程分析 MD<\/th>/);
 assert.match(context.reportHtml, /<th>作品描述 MD<\/th>/);
 assert.match(context.reportHtml, /<th>对比报告 MD<\/th>/);
+assert.doesNotMatch(context.reportHtml, /<th>状态<\/th>/);
 assert.doesNotMatch(context.reportHtml, /引用合法率/);
 assert.doesNotMatch(context.reportHtml, /更新时间/);
 assert.match(context.reportHtml, /href="\/files\/summary\/demo-summary\.pdf"/);
