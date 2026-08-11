@@ -1,28 +1,16 @@
 const state = {
-  page: "home",
-  reports: { describe: [], compare: [] },
+  reports: { describe: [] },
   selectedDescribe: null,
-  selectedCompare: null,
   analysisPage: 1,
-  comparePage: 1,
   yearFilter: "全部年份",
   schoolFilter: "全部学校",
   familyFilter: "全部家族",
-  compareLeftFilter: "全部今年作品",
-  compareRightFilter: "全部历史作品",
   query: "",
   staticMode: false
 };
 
-const COMPARE_LEFT_ALL = "全部今年作品";
-const COMPARE_RIGHT_ALL = "全部历史作品";
-
 function $(selector, root = document) {
   return root.querySelector(selector);
-}
-
-function $all(selector, root = document) {
-  return [...root.querySelectorAll(selector)];
 }
 
 function fmtDate(value) {
@@ -34,10 +22,6 @@ function fmtDate(value) {
 
 function pct(value) {
   return value === null || value === undefined ? "待验证" : `${Number(value).toFixed(1)}%`;
-}
-
-function num(value) {
-  return Number(value || 0).toFixed(2);
 }
 
 function fieldValue(item, key) {
@@ -56,18 +40,6 @@ function allDescribe() {
   return [...state.reports.describe];
 }
 
-function allCompare() {
-  const real = state.reports.compare.map((item) => ({
-    ...item,
-    risk: item.risk || riskByScore(item.score),
-    leftYear: item.leftYear || item.year || "待补充",
-    rightYear: item.rightYear || item.year || "待补充",
-    leftSchool: item.leftSchool || item.school || "待补充",
-    rightSchool: item.rightSchool || item.school || "待补充"
-  }));
-  return real.sort((a, b) => (b.score || 0) - (a.score || 0));
-}
-
 function uniq(values) {
   return [...new Set(values.map((value) => String(value || "待补充")).filter(Boolean))].sort((a, b) => {
     if (a === "待补充") return 1;
@@ -77,19 +49,11 @@ function uniq(values) {
 }
 
 function yearOptions() {
-  const values = [
-    ...state.reports.describe.map((item) => item.year),
-    ...state.reports.compare.flatMap((item) => [item.year, item.leftYear, item.rightYear])
-  ];
-  return ["全部年份", ...uniq(values)];
+  return ["全部年份", ...uniq(state.reports.describe.map((item) => item.year))];
 }
 
 function schoolOptions() {
-  const values = [
-    ...state.reports.describe.map((item) => item.school),
-    ...state.reports.compare.flatMap((item) => [item.school, item.leftSchool, item.rightSchool])
-  ];
-  return ["全部学校", ...uniq(values)];
+  return ["全部学校", ...uniq(state.reports.describe.map((item) => item.school))];
 }
 
 function familyOptions() {
@@ -102,12 +66,12 @@ function optionList(values, selected) {
 
 function matchesYear(item) {
   if (state.yearFilter === "全部年份") return true;
-  return [item.year, item.leftYear, item.rightYear].some((value) => String(value || "") === state.yearFilter);
+  return String(item.year || "") === state.yearFilter;
 }
 
 function matchesSchool(item) {
   if (state.schoolFilter === "全部学校") return true;
-  return [item.school, item.leftSchool, item.rightSchool].some((value) => String(value || "") === state.schoolFilter);
+  return String(item.school || "") === state.schoolFilter;
 }
 
 function matchesFamily(item) {
@@ -123,60 +87,10 @@ function filterAnalysisRows() {
   return filterByYearSchool(filterByQuery(allDescribe(), ["project", "title", "family", "year", "school"])).filter(matchesFamily);
 }
 
-function compareLeftOptions() {
-  return [COMPARE_LEFT_ALL, ...uniq(allCompare().map((item) => item.left || "待补充"))];
-}
-
-function compareRightOptions() {
-  const rows = allCompare().filter((item) => state.compareLeftFilter === COMPARE_LEFT_ALL || item.left === state.compareLeftFilter);
-  return [COMPARE_RIGHT_ALL, ...uniq(rows.map((item) => item.right || "待补充"))];
-}
-
-function syncCompareFilters() {
-  const leftOptions = compareLeftOptions();
-  if (!leftOptions.includes(state.compareLeftFilter)) {
-    state.compareLeftFilter = COMPARE_LEFT_ALL;
-  }
-  const rightOptions = compareRightOptions();
-  if (!rightOptions.includes(state.compareRightFilter)) {
-    state.compareRightFilter = COMPARE_RIGHT_ALL;
-  }
-  return { leftOptions, rightOptions };
-}
-
-function matchesComparePair(item) {
-  if (state.compareLeftFilter !== COMPARE_LEFT_ALL && item.left !== state.compareLeftFilter) return false;
-  if (state.compareRightFilter !== COMPARE_RIGHT_ALL && item.right !== state.compareRightFilter) return false;
-  return true;
-}
-
-function filterCompareRows() {
-  return filterByYearSchool(filterByQuery(allCompare(), ["left", "right", "title", "year", "school", "leftYear", "rightYear", "leftSchool", "rightSchool"])).filter(matchesComparePair);
-}
-
-function compareMeta(item) {
-  const left = [item.leftYear, item.leftSchool].filter((value) => value && value !== "待补充").join(" · ") || "待补充";
-  const right = [item.rightYear, item.rightSchool].filter((value) => value && value !== "待补充").join(" · ") || "待补充";
-  return `${left} ↔ ${right}`;
-}
-
-function riskByScore(score) {
-  if (score >= 0.7) return "高风险";
-  if (score >= 0.4) return "中风险";
-  return "低风险";
-}
-
 function statusClass(status) {
   if (status === "已发布") return "green";
   if (status === "分析中") return "blue";
   return "orange";
-}
-
-function riskClass(risk) {
-  if (/高/.test(risk)) return "red";
-  if (/中|stub|缺口|复核/.test(risk)) return "orange";
-  if (/低/.test(risk)) return "blue";
-  return "green";
 }
 
 function escapeHtml(text) {
@@ -185,16 +99,6 @@ function escapeHtml(text) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-}
-
-function openPage(page) {
-  state.page = page;
-  if (location.hash.slice(1) !== page) {
-    history.replaceState(null, "", `#${page}`);
-  }
-  $all(".page").forEach((el) => el.classList.toggle("active", el.id === `page-${page}`));
-  $all(".nav-link").forEach((el) => el.classList.toggle("active", el.dataset.page === page));
-  render();
 }
 
 function assetPath(path) {
@@ -206,61 +110,23 @@ async function loadReports() {
     let res = await fetch("/api/reports");
     if (!res.ok) {
       res = await fetch(assetPath("api/reports.json"));
-      state.staticMode = res.ok;
     }
     if (!res.ok) throw new Error("读取报告失败");
-    state.reports = await res.json();
+    const data = await res.json();
+    state.staticMode = data.staticMode === true;
+    state.reports = { describe: Array.isArray(data.describe) ? data.describe : [] };
   } catch (error) {
     toast(`读取报告数据失败：${error.message}`);
   }
   state.selectedDescribe = state.reports.describe[0] || null;
-  state.selectedCompare = state.reports.compare[0] || null;
   render();
 }
 
 function render() {
-  renderHome();
   renderAnalysis();
-  renderCompare();
 }
 
-function renderHome() {
-  const describe = allDescribe();
-  const compare = allCompare();
-  const pending = describe.filter((x) => x.status !== "已发布").length + compare.filter((x) => x.status !== "已发布").length;
-  $("#page-home").innerHTML = `
-    <section>
-      <h1 class="hero-title">2026 内核赛道作品分析平台</h1>
-      <p class="subtitle">集中发布今年参赛作品分析、历史作品比对与可信源码引用报告</p>
-      <div class="metrics-grid">
-        ${metric("▤", "作品分析", describe.length)}
-        ${metric("▥", "比对报告", compare.length)}
-        ${metric("✓", "引用验证", "99.24", "%")}
-        ${metric("!", "待复核", pending)}
-      </div>
-      <article class="card">
-        <div class="card-head">
-          <h2 class="card-title">今年作品分析进度</h2>
-          <button class="link" data-page-jump="analysis">查看全部 →</button>
-        </div>
-        ${analysisTable(describe.slice(0, 5), true)}
-        <div class="pagination"><span class="spacer"></span><button class="link" data-page-jump="analysis">查看全部作品分析 →</button><span class="spacer"></span></div>
-      </article>
-    </section>
-  `;
-}
-
-function metric(icon, label, value, suffix = "") {
-  return `
-    <div class="metric-card">
-      <div class="metric-icon">${icon}</div>
-      <div><div class="metric-label">${label}</div><div class="metric-value">${value}<small>${suffix}</small></div></div>
-    </div>
-  `;
-}
-
-function analysisTable(rows, compact = false) {
-  const colSpan = compact ? 5 : 8;
+function analysisTable(rows) {
   return `
     <div class="table-wrap">
       <table>
@@ -268,11 +134,12 @@ function analysisTable(rows, compact = false) {
           <tr>
             <th>作品</th>
             <th>年份</th>
-            ${compact ? "" : "<th>学校</th>"}
+            <th>学校</th>
             <th>内核家族</th>
             <th>状态</th>
             <th>describe 报告</th>
-            ${compact ? "" : "<th>引用合法率</th><th>更新时间</th>"}
+            <th>引用合法率</th>
+            <th>更新时间</th>
           </tr>
         </thead>
         <tbody>
@@ -280,36 +147,35 @@ function analysisTable(rows, compact = false) {
             <tr class="${state.selectedDescribe?.id === item.id ? "selected" : ""}" data-select-describe="${item.id}">
               <td>${escapeHtml(item.project || item.title)}</td>
               <td>${escapeHtml(yearValue(item))}</td>
-              ${compact ? "" : `<td>${escapeHtml(schoolValue(item))}</td>`}
+              <td>${escapeHtml(schoolValue(item))}</td>
               <td>${escapeHtml(item.family || "待识别")}</td>
               <td><span class="status ${statusClass(item.status)}">${escapeHtml(item.status)}</span></td>
-              <td>${reportActions(item, "describe")}</td>
-              ${compact
-                ? ""
-                : `<td class="score">${pct(item.citationRate)}</td><td>${fmtDate(item.updatedAt)}</td>`}
+              <td>${reportActions(item)}</td>
+              <td class="score">${pct(item.citationRate)}</td>
+              <td>${fmtDate(item.updatedAt)}</td>
             </tr>
-          `).join("") : `<tr><td colspan="${colSpan}"><div class="empty">服务器 describe 目录暂无项目分析 Markdown。将报告放入服务器目录后页面会自动读取。</div></td></tr>`}
+          `).join("") : `<tr><td colspan="8"><div class="empty">服务器 describe 目录暂无项目分析 Markdown。将报告放入服务器目录后页面会自动读取。</div></td></tr>`}
         </tbody>
       </table>
     </div>
   `;
 }
 
-function reportActions(item, type) {
+function reportActions(item) {
   return `
-    <button class="btn btn-ghost btn-sm" data-preview="${type}:${escapeHtml(item.file)}">预览</button>
-    <a class="btn btn-ghost btn-sm" href="${downloadUrl(type, item.file)}" download>下载</a>
+    <button class="btn btn-ghost btn-sm" data-preview="${escapeHtml(item.file)}">预览</button>
+    <a class="btn btn-ghost btn-sm" href="${downloadUrl(item.file)}" download>下载</a>
   `;
 }
 
-function staticReportUrl(type, file) {
-  return assetPath(`${type}/${encodeURIComponent(file)}`);
+function staticReportUrl(file) {
+  return assetPath(`describe/${encodeURIComponent(file)}`);
 }
 
-function downloadUrl(type, file) {
+function downloadUrl(file) {
   return state.staticMode
-    ? staticReportUrl(type, file)
-    : `/download/${type}/${encodeURIComponent(file)}`;
+    ? staticReportUrl(file)
+    : `/download/${encodeURIComponent(file)}`;
 }
 
 function renderAnalysis() {
@@ -321,8 +187,8 @@ function renderAnalysis() {
   const pageRows = rows.slice(pageStart, pageStart + pageSize);
   $("#page-analysis").innerHTML = `
     <section>
-      <h1 class="page-title">今年作品分析</h1>
-      <p class="subtitle">管理今年参赛作品的 describe 报告、内核家族画像与引用验证结果。</p>
+      <h1 class="page-title">作品分析</h1>
+      <p class="subtitle">浏览参赛作品的分析报告、内核家族画像与引用验证结果。</p>
       <div class="toolbar">
         <input class="input" data-search placeholder="搜索作品 / 内核家族 / 学校 / 年份" value="${escapeHtml(state.query)}" />
         <select class="select" data-year-filter>${optionList(yearOptions(), state.yearFilter)}</select>
@@ -331,107 +197,10 @@ function renderAnalysis() {
       </div>
       <article class="card">
         <div class="card-head"><h2 class="card-title">作品列表</h2></div>
-        ${analysisTable(pageRows, false)}
+        ${analysisTable(pageRows)}
         ${pagination(rows.length, pageSize, state.analysisPage, "data-analysis-page")}
       </article>
     </section>
-  `;
-}
-
-function renderCompare() {
-  const { leftOptions, rightOptions } = syncCompareFilters();
-  const rows = filterCompareRows();
-  const pageSize = 10;
-  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
-  state.comparePage = Math.min(Math.max(1, state.comparePage || 1), totalPages);
-  const pageStart = (state.comparePage - 1) * pageSize;
-  const pageRows = rows.slice(pageStart, pageStart + pageSize);
-  const selected = rows.find((item) => item.id === state.selectedCompare?.id) || rows[0] || null;
-  $("#page-compare").innerHTML = `
-    <section>
-      <h1 class="page-title">历年作品比对</h1>
-      <p class="subtitle">选择今年作品与历史基线，生成结构化 compare 报告。</p>
-      <div class="compare-picker">
-        <label class="select-card"><span>选择今年作品：</span><select class="select" data-compare-left-filter ${leftOptions.length <= 1 ? "disabled" : ""}>${optionList(leftOptions, state.compareLeftFilter)}</select></label>
-        <label class="select-card"><span>选择历史作品：</span><select class="select" data-compare-right-filter ${rightOptions.length <= 1 ? "disabled" : ""}>${optionList(rightOptions, state.compareRightFilter)}</select></label>
-      </div>
-      <p style="color:var(--muted); font-weight:700">ⓘ 综合分由函数签名、系统调用、依赖、调用图、目录结构融合。</p>
-      <div class="toolbar compact">
-        <input class="input" data-search placeholder="搜索作品 / 学校 / 年份" value="${escapeHtml(state.query)}" />
-        <select class="select" data-year-filter>${optionList(yearOptions(), state.yearFilter)}</select>
-        <select class="select" data-school-filter>${optionList(schoolOptions(), state.schoolFilter)}</select>
-      </div>
-      <div class="grid-compare">
-        <article class="card">
-          <div class="card-head"><h2 class="card-title">比对任务</h2></div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>作品 A ↔ 历史作品 B</th><th>状态</th><th>综合分</th><th>报告入口</th></tr></thead>
-              <tbody>
-                ${rows.length ? pageRows.map((item) => `
-                  <tr class="${selected.id === item.id ? "selected" : ""}" data-select-compare="${item.id}">
-                    <td>${escapeHtml(item.left)} ↔ ${escapeHtml(item.right)}</td>
-                    <td><span class="status ${statusClass(item.status)}">${escapeHtml(item.status)}</span></td>
-                    <td class="score">${num(item.score)}</td>
-                    <td>${reportActions(item, "compare")}</td>
-                  </tr>
-                `).join("") : `<tr><td colspan="4"><div class="empty">服务器 compare 目录暂无比对 Markdown。将报告放入服务器目录后页面会自动读取。</div></td></tr>`}
-              </tbody>
-            </table>
-          </div>
-          ${comparePagination(rows.length, pageSize, state.comparePage)}
-        </article>
-        <article class="card card-pad">
-          ${selected ? `
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:18px">
-            <h2 class="card-title">比对详情</h2>
-            <span class="risk ${riskClass(selected.risk)}">${escapeHtml(selected.risk)}</span>
-          </div>
-          <h3 style="font-size:22px">${escapeHtml(selected.left)} ↔ ${escapeHtml(selected.right)} <span class="score" style="float:right; font-size:30px">${num(selected.score)}</span></h3>
-          <div class="detail-metrics">
-            <div class="detail-metric"><span>A 年份</span><strong>${escapeHtml(selected.leftYear || "待补充")}</strong></div>
-            <div class="detail-metric"><span>A 学校</span><strong>${escapeHtml(selected.leftSchool || "待补充")}</strong></div>
-            <div class="detail-metric"><span>B 年份</span><strong>${escapeHtml(selected.rightYear || "待补充")}</strong></div>
-            <div class="detail-metric"><span>B 学校</span><strong>${escapeHtml(selected.rightSchool || "待补充")}</strong></div>
-          </div>
-          ${progress("函数签名", selected.signature)}
-          ${progress("syscall", selected.syscall)}
-          ${progress("依赖", selected.deps)}
-          ${progress("调用图", selected.callgraph)}
-          ${progress("目录结构", selected.directory)}
-          <h3>主要差异点</h3>
-          <ol class="diff-list">
-            <li><span>内存管理扩展：页表管理与缺页处理机制存在差异。</span></li>
-            <li><span>syscall stub 比例：部分系统调用尚未完全实现。</span></li>
-            <li><span>文件系统路径差异：目录组织与 VFS 接口实现方式不同。</span></li>
-            <li><span>驱动注册方式：显式注册与基线复用程度不同。</span></li>
-          </ol>
-          <div style="display:flex; justify-content:flex-end; margin-top:22px">${reportActions(selected, "compare")}</div>
-          ` : `<h2 class="card-title">比对详情</h2><div class="empty">服务器 compare 目录暂无比对任务。报告入库后，这里会显示综合分、五类指标和主要差异点。</div>`}
-        </article>
-      </div>
-    </section>
-  `;
-}
-
-function comparePagination(total, pageSize, currentPage) {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const start = total ? (currentPage - 1) * pageSize + 1 : 0;
-  const end = Math.min(total, currentPage * pageSize);
-  const pageButtons = Array.from({ length: totalPages }, (_, index) => {
-    const page = index + 1;
-    return `<button class="page-btn ${page === currentPage ? "active" : ""}" data-compare-page="${page}">${page}</button>`;
-  }).join("");
-
-  return `
-    <div class="pagination">
-      <span>共 ${total} 条，显示 ${start}-${end}</span>
-      <span class="spacer"></span>
-      <button class="page-btn" data-compare-page="prev" ${currentPage <= 1 ? "disabled" : ""}>‹</button>
-      ${pageButtons}
-      <button class="page-btn" data-compare-page="next" ${currentPage >= totalPages ? "disabled" : ""}>›</button>
-      <select class="select" style="width:120px"><option>${pageSize} 条/页</option></select>
-    </div>
   `;
 }
 
@@ -456,11 +225,6 @@ function pagination(total, pageSize, currentPage, dataAttr) {
   `;
 }
 
-function progress(label, value) {
-  const v = Math.max(0, Math.min(1, Number(value || 0)));
-  return `<div class="progress-row"><strong>${label}</strong><div class="bar"><span style="width:${v * 100}%"></span></div><span>${num(v)}</span></div>`;
-}
-
 function selectOption(value, selected) {
   return `<option value="${escapeHtml(value)}" ${value === selected ? "selected" : ""}>${escapeHtml(value)}</option>`;
 }
@@ -471,10 +235,10 @@ function filterByQuery(items, keys) {
   return items.filter((item) => keys.some((key) => String(item[key] || "").toLowerCase().includes(q)));
 }
 
-async function previewReport(type, file) {
-  let res = await fetch(`/api/report?type=${encodeURIComponent(type)}&name=${encodeURIComponent(file)}`);
+async function previewReport(file) {
+  let res = await fetch(`/api/report?name=${encodeURIComponent(file)}`);
   if (!res.ok) {
-    res = await fetch(staticReportUrl(type, file));
+    res = await fetch(staticReportUrl(file));
   }
   if (!res.ok) {
     toast("无法读取报告");
@@ -562,16 +326,9 @@ function toast(message) {
 
 function wireEvents() {
   document.addEventListener("click", (event) => {
-    const nav = event.target.closest("[data-page]");
-    if (nav) openPage(nav.dataset.page);
-
-    const jump = event.target.closest("[data-page-jump]");
-    if (jump) openPage(jump.dataset.pageJump);
-
     const preview = event.target.closest("[data-preview]");
     if (preview) {
-      const [type, ...name] = preview.dataset.preview.split(":");
-      previewReport(type, name.join(":"));
+      previewReport(preview.dataset.preview);
     }
 
     const close = event.target.closest("[data-close-modal]");
@@ -599,32 +356,12 @@ function wireEvents() {
       renderAnalysis();
     }
 
-    const rowC = event.target.closest("[data-select-compare]");
-    if (rowC && !event.target.closest("button,a")) {
-      const id = rowC.dataset.selectCompare;
-      state.selectedCompare = allCompare().find((x) => x.id === id) || state.selectedCompare;
-      renderCompare();
-    }
-
-    const comparePage = event.target.closest("[data-compare-page]");
-    if (comparePage) {
-      const rows = filterCompareRows();
-      const totalPages = Math.max(1, Math.ceil(rows.length / 10));
-      const target = comparePage.dataset.comparePage;
-      if (target === "prev") state.comparePage -= 1;
-      else if (target === "next") state.comparePage += 1;
-      else state.comparePage = Number(target);
-      state.comparePage = Math.min(Math.max(1, state.comparePage), totalPages);
-      renderCompare();
-    }
-
   });
 
   document.addEventListener("input", (event) => {
     if (event.target.matches("[data-search]")) {
       state.query = event.target.value;
       state.analysisPage = 1;
-      state.comparePage = 1;
       render();
     }
   });
@@ -633,32 +370,17 @@ function wireEvents() {
     if (event.target.matches("[data-year-filter]")) {
       state.yearFilter = event.target.value;
       state.analysisPage = 1;
-      state.comparePage = 1;
       render();
     }
     if (event.target.matches("[data-school-filter]")) {
       state.schoolFilter = event.target.value;
       state.analysisPage = 1;
-      state.comparePage = 1;
       render();
     }
     if (event.target.matches("[data-family-filter]")) {
       state.familyFilter = event.target.value;
       state.analysisPage = 1;
       renderAnalysis();
-    }
-    if (event.target.matches("[data-compare-left-filter]")) {
-      state.compareLeftFilter = event.target.value;
-      state.compareRightFilter = COMPARE_RIGHT_ALL;
-      state.selectedCompare = null;
-      state.comparePage = 1;
-      renderCompare();
-    }
-    if (event.target.matches("[data-compare-right-filter]")) {
-      state.compareRightFilter = event.target.value;
-      state.selectedCompare = null;
-      state.comparePage = 1;
-      renderCompare();
     }
   });
 
@@ -671,17 +393,4 @@ function wireEvents() {
 }
 
 wireEvents();
-
-window.addEventListener("hashchange", () => {
-  const page = location.hash.slice(1);
-  if (["home", "analysis", "compare"].includes(page)) {
-    openPage(page);
-  }
-});
-
-const initialPage = location.hash.slice(1);
-if (["home", "analysis", "compare"].includes(initialPage)) {
-  state.page = initialPage;
-}
-
-loadReports().then(() => openPage(state.page));
+loadReports();

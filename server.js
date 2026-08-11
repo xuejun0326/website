@@ -6,10 +6,9 @@ const { URL } = require("url");
 const ROOT = __dirname;
 const PUBLIC = path.join(ROOT, "public");
 const DESCRIBE_DIR = path.join(ROOT, "describe");
-const COMPARE_DIR = path.join(ROOT, "compare");
 const PORT = Number(process.env.PORT || 4173);
 
-for (const dir of [DESCRIBE_DIR, COMPARE_DIR, PUBLIC]) {
+for (const dir of [DESCRIBE_DIR, PUBLIC]) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
@@ -41,10 +40,9 @@ function safeFileName(name) {
   return withExt || `report-${Date.now()}.md`;
 }
 
-function fileFor(type, name) {
-  const dir = type === "compare" ? COMPARE_DIR : DESCRIBE_DIR;
-  const resolved = path.resolve(dir, safeFileName(name));
-  if (!resolved.startsWith(path.resolve(dir))) {
+function fileFor(name) {
+  const resolved = path.resolve(DESCRIBE_DIR, safeFileName(name));
+  if (!resolved.startsWith(path.resolve(DESCRIBE_DIR))) {
     throw new Error("invalid path");
   }
   return resolved;
@@ -83,19 +81,6 @@ function metadataValue(markdown, labels) {
   return "";
 }
 
-function pairTableValues(markdown, labels) {
-  const lines = markdown.replace(/\r\n/g, "\n").split("\n");
-  for (const line of lines) {
-    if (!/^\s*\|.+\|\s*$/.test(line)) continue;
-    const cells = line.split("|").slice(1, -1).map(cleanMetaValue);
-    if (cells.length < 3) continue;
-    if (labels.some((label) => cells[0].includes(label))) {
-      return [cells[1], cells[2]];
-    }
-  }
-  return ["", ""];
-}
-
 function normalizeYear(value) {
   const hit = String(value || "").match(/20\d{2}/);
   return hit ? hit[0] : "";
@@ -119,16 +104,6 @@ function inferSchool(markdown) {
   return school || "待补充";
 }
 
-function sideMetadataValue(markdown, sideLabels, fieldLabels) {
-  const labels = [];
-  for (const side of sideLabels) {
-    for (const field of fieldLabels) {
-      labels.push(`${side}${field}`, `${side} ${field}`, `${side}：${field}`);
-    }
-  }
-  return metadataValue(markdown, labels);
-}
-
 function inferFamily(text) {
   const lower = text.toLowerCase();
   if (lower.includes("arceos") || lower.includes("starry")) return "ArceOS-Starry";
@@ -144,29 +119,10 @@ function inferStatus(text) {
   return "已发布";
 }
 
-function inferRisk(text, type) {
-  if (type === "compare") {
-    const score = inferScore(text);
-    if (score >= 0.7) return "高风险";
-    if (score >= 0.4) return "中风险";
-    return "低风险";
-  }
+function inferRisk(text) {
   if (/高相似|高度相似|derivative/i.test(text)) return "高相似";
   if (/syscall.*缺|stub|待复核|line_start_zero|json_parse_failed/i.test(text)) return "引用待复核";
   return "正常";
-}
-
-function inferScore(text) {
-  const patterns = [
-    /综合(?:相似度|分|得分)?[^\d]{0,12}([01]\.\d{2,4})/i,
-    /overall[^\d]{0,12}([01]\.\d{2,4})/i,
-    /相似度[^\d]{0,12}([01]\.\d{2,4})/i
-  ];
-  for (const pat of patterns) {
-    const hit = text.match(pat);
-    if (hit) return Number(hit[1]);
-  }
-  return 0;
 }
 
 function citationRate(text) {
@@ -176,74 +132,25 @@ function citationRate(text) {
   return Math.max(0, Math.min(100, ((refs.length - bad) / refs.length) * 100));
 }
 
-function pairFrom(name, title, text) {
-  const source = `${name} ${title}`;
-  const byVs = source.match(/(.+?)(?:__vs__|_vs_| vs |↔)(.+?)(?:-compare|\.md|$)/i);
-  if (byVs) return [cleanPairName(byVs[1]), cleanPairName(byVs[2])];
-  const arrow = text.match(/([A-Za-z0-9_.\-\u4e00-\u9fa5]+)\s*(?:↔|vs)\s*([A-Za-z0-9_.\-\u4e00-\u9fa5]+)/i);
-  if (arrow) return [cleanPairName(arrow[1]), cleanPairName(arrow[2])];
-  return [title.replace(/\s*compare\s*$/i, ""), "历史基线"];
-}
-
-function cleanPairName(value) {
-  return String(value)
-    .replace(/[_]+/g, " ")
-    .replace(/-compare$/i, "")
-    .replace(/\.md$/i, "")
-    .trim();
-}
-
-function analyzeMarkdown(type, file, markdown, stat) {
+function analyzeMarkdown(file, markdown, stat) {
   const title = extractTitle(markdown, file);
   const rate = citationRate(markdown);
   const year = inferYear(markdown, `${file} ${title}`);
   const school = inferSchool(markdown);
-  const base = {
-    id: `${type}:${file}`,
-    type,
+  return {
+    id: `describe:${file}`,
+    type: "describe",
     file,
     title,
     year,
     school,
     family: inferFamily(markdown),
     status: inferStatus(markdown),
-    risk: inferRisk(markdown, type),
+    risk: inferRisk(markdown),
     citationRate: rate,
     updatedAt: stat.mtime.toISOString(),
     size: stat.size,
-    refs: (markdown.match(/[\w./\\-]+\.(?:rs|c|cc|cpp|h|hpp|py|toml|S|asm):\d+(?:-\d+)?/g) || []).length
-  };
-
-  if (type === "compare") {
-    const score = inferScore(markdown);
-    const [left, right] = pairFrom(file, title, markdown);
-    const [leftYearFromTable, rightYearFromTable] = pairTableValues(markdown, ["参赛年份", "作品年份", "比赛年份", "年份", "年度"]);
-    const [leftSchoolFromTable, rightSchoolFromTable] = pairTableValues(markdown, ["学校名称", "参赛学校", "团队学校", "学校", "高校", "院校"]);
-    const leftYear = normalizeYear(sideMetadataValue(markdown, ["A", "作品A", "项目A", "左侧", "基准"], ["参赛年份", "作品年份", "年份", "年度"])) || normalizeYear(leftYearFromTable) || inferYear("", left);
-    const rightYear = normalizeYear(sideMetadataValue(markdown, ["B", "作品B", "项目B", "右侧", "历史"], ["参赛年份", "作品年份", "年份", "年度"])) || normalizeYear(rightYearFromTable) || inferYear("", right);
-    const leftSchool = sideMetadataValue(markdown, ["A", "作品A", "项目A", "左侧", "基准"], ["学校名称", "参赛学校", "学校", "高校", "院校"]) || leftSchoolFromTable || "待补充";
-    const rightSchool = sideMetadataValue(markdown, ["B", "作品B", "项目B", "右侧", "历史"], ["学校名称", "参赛学校", "学校", "高校", "院校"]) || rightSchoolFromTable || "待补充";
-    return {
-      ...base,
-      left,
-      right,
-      leftYear,
-      rightYear,
-      leftSchool,
-      rightSchool,
-      year: leftYear === rightYear ? leftYear : [leftYear, rightYear].filter((x) => x && x !== "待补充").join(" / ") || "待补充",
-      school: leftSchool === rightSchool ? leftSchool : [leftSchool, rightSchool].filter((x) => x && x !== "待补充").join(" / ") || "待补充",
-      score,
-      signature: score ? Math.min(0.99, score + 0.06) : 0,
-      syscall: score ? Math.max(0.12, score - 0.09) : 0,
-      deps: score ? Math.max(0.1, score - 0.28) : 0,
-      callgraph: score ? Math.min(0.99, score + 0.01) : 0,
-      directory: score ? Math.max(0.02, score - 0.08) : 0
-    };
-  }
-
-  return {
-    ...base,
+    refs: (markdown.match(/[\w./\\-]+\.(?:rs|c|cc|cpp|h|hpp|py|toml|S|asm):\d+(?:-\d+)?/g) || []).length,
     project: title.replace(/\s*describe\s*$/i, ""),
     modules: /模块覆盖[^\d]*(\d+)\s*\/\s*(\d+)/.test(markdown)
       ? markdown.match(/模块覆盖[^\d]*(\d+)\s*\/\s*(\d+)/).slice(1, 3).join("/")
@@ -253,22 +160,16 @@ function analyzeMarkdown(type, file, markdown, stat) {
 }
 
 function readReports() {
-  const groups = [
-    ["describe", DESCRIBE_DIR],
-    ["compare", COMPARE_DIR]
-  ];
-  const out = { describe: [], compare: [] };
-  for (const [type, dir] of groups) {
-    const files = fs.readdirSync(dir).filter((f) => f.toLowerCase().endsWith(".md"));
-    for (const file of files) {
-      const full = path.join(dir, file);
-      const stat = fs.statSync(full);
-      const markdown = fs.readFileSync(full, "utf8");
-      out[type].push(analyzeMarkdown(type, file, markdown, stat));
-    }
-    out[type].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  const describe = [];
+  const files = fs.readdirSync(DESCRIBE_DIR).filter((file) => file.toLowerCase().endsWith(".md"));
+  for (const file of files) {
+    const full = path.join(DESCRIBE_DIR, file);
+    const stat = fs.statSync(full);
+    const markdown = fs.readFileSync(full, "utf8");
+    describe.push(analyzeMarkdown(file, markdown, stat));
   }
-  return out;
+  describe.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  return { staticMode: false, describe };
 }
 
 function serveStatic(req, res, pathname) {
@@ -316,22 +217,20 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && pathname === "/api/report") {
-      const type = url.searchParams.get("type") === "compare" ? "compare" : "describe";
       const name = safeFileName(url.searchParams.get("name"));
-      const full = fileFor(type, name);
+      const full = fileFor(name);
       if (!fs.existsSync(full)) {
         send(res, 404, { error: "report not found" });
         return;
       }
-      send(res, 200, { type, name, content: fs.readFileSync(full, "utf8") });
+      send(res, 200, { name, content: fs.readFileSync(full, "utf8") });
       return;
     }
 
     if (req.method === "GET" && pathname.startsWith("/download/")) {
-      const [, , type, ...nameParts] = pathname.split("/");
-      const safeType = type === "compare" ? "compare" : "describe";
+      const [, , ...nameParts] = pathname.split("/");
       const name = safeFileName(nameParts.join("/"));
-      const full = fileFor(safeType, name);
+      const full = fileFor(name);
       if (!fs.existsSync(full)) {
         send(res, 404, "Not found", "text/plain; charset=utf-8");
         return;
@@ -346,8 +245,7 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "POST" && pathname === "/api/upload") {
       const body = JSON.parse(await readBody(req));
-      const type = body.type === "compare" ? "compare" : "describe";
-      const fileName = safeFileName(body.fileName || `${type}-${Date.now()}.md`);
+      const fileName = safeFileName(body.fileName || `describe-${Date.now()}.md`);
       const content = String(body.content || "");
       if (!content.trim()) {
         send(res, 400, { error: "empty markdown" });
@@ -357,10 +255,10 @@ const server = http.createServer(async (req, res) => {
         send(res, 413, { error: "file too large" });
         return;
       }
-      const full = fileFor(type, fileName);
+      const full = fileFor(fileName);
       fs.writeFileSync(full, content, "utf8");
       const stat = fs.statSync(full);
-      send(res, 200, { ok: true, report: analyzeMarkdown(type, fileName, content, stat) });
+      send(res, 200, { ok: true, report: analyzeMarkdown(fileName, content, stat) });
       return;
     }
 
@@ -373,5 +271,4 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`OSKAG website running at http://localhost:${PORT}`);
   console.log(`describe dir: ${DESCRIBE_DIR}`);
-  console.log(`compare dir:  ${COMPARE_DIR}`);
 });

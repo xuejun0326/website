@@ -1,6 +1,6 @@
-# OSKAG Kernel Analysis Site
+# OSKAG 作品分析站点
 
-面向内核赛道作品分析与历年作品比对的报告发布网站。站点采用服务器端 Markdown 报告库模式，启动后自动索引 `describe/` 与 `compare/` 目录中的报告，评审方打开网址即可直接浏览、预览和下载。
+面向内核赛道作品分析的报告发布网站。站点采用服务器端 Markdown 报告库模式，启动后自动索引 `describe/` 目录中的报告，评审方打开网址即可直接筛选、预览和下载。
 
 ## 本地运行
 
@@ -17,10 +17,9 @@ http://localhost:4173
 ## 目录说明
 
 ```text
-public/      前端页面、样式和交互逻辑
+public/      作品分析页面、样式和交互逻辑
 server.js    Node.js 报告索引与静态资源服务
-describe/    单个作品分析 Markdown
-compare/     作品对比 Markdown
+describe/    作品分析 Markdown
 tests/       前端行为回归测试
 ```
 
@@ -45,10 +44,9 @@ Root directory: /
 ```text
 api/reports.json   静态报告索引
 describe/*.md      项目分析 Markdown
-compare/*.md       比对报告 Markdown
 ```
 
-Cloudflare 静态部署模式下，线上页面不能直接在线写入 Markdown。新增或修改报告时，把 `.md` 文件提交到 GitHub 的 `describe/` 或 `compare/` 目录，Cloudflare 会自动重新部署。
+Cloudflare 静态部署模式下，线上页面不能直接在线写入 Markdown。新增或修改报告时，把 `.md` 文件提交到 GitHub 的 `describe/` 目录，Cloudflare 会自动重新部署。
 
 仓库也提供了 `wrangler.toml`：
 
